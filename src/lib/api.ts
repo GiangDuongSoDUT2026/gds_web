@@ -235,8 +235,10 @@ export async function register(params: RegisterParams): Promise<User> {
   return data;
 }
 
-export async function getMe(): Promise<User> {
-  const { data } = await apiClient.get<User>("/api/v1/auth/me");
+export async function getMe(token?: string): Promise<User> {
+  const { data } = await apiClient.get<User>("/api/v1/auth/me",
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  );
   return data;
 }
 

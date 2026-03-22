@@ -63,16 +63,19 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
 
-  const { data: programs, isLoading: programsLoading } = useQuery({
+  const { data: programs, isLoading: programsLoading, isError: programsError } = useQuery({
     queryKey: queryKeys.programs.all(),
     queryFn: getPrograms,
+    retry: 1,
   });
 
-  const { data: health } = useQuery({
+  const { data: health, isError: healthError } = useQuery({
     queryKey: ["health"],
     queryFn: getHealth,
     retry: false,
   });
+
+  const backendDown = healthError && programsError;
 
   const { data: recommendations = [] } = useQuery({
     queryKey: ["recommendations"],
@@ -103,6 +106,14 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 space-y-8">
+      {/* Backend down banner */}
+      {backendDown && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center gap-2">
+          <Activity className="h-4 w-4 shrink-0" />
+          <span>Backend is not available. Some features may not work. Please try again later.</span>
+        </div>
+      )}
+
       {/* Hero search */}
       <div className="flex flex-col items-center gap-6 py-8 text-center">
         <div className="space-y-2">
@@ -117,6 +128,13 @@ export default function DashboardPage() {
         <div className="w-full max-w-2xl">
           <SearchBar onSearch={handleSearch} size="hero" />
         </div>
+        {/* Login CTA for guests */}
+        {!isAuthenticated() && (
+          <p className="text-sm text-muted-foreground">
+            <Link href="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+            {" "}to access AI chat, track your progress, and get personalized recommendations.
+          </p>
+        )}
       </div>
 
       {/* Continue watching */}

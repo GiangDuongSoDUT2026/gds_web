@@ -67,6 +67,20 @@ export function useWebSocket(
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isManualClose = useRef(false);
 
+  // Use refs for callbacks so connect() doesn't need them as deps (avoids reconnect loop)
+  const onTokenRef = useRef(onToken);
+  const onDoneRef = useRef(onDone);
+  const onCitationsRef = useRef(onCitations);
+  const onCardRef = useRef(onCard);
+  const onToolCallRef = useRef(onToolCall);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onTokenRef.current = onToken; });
+  useEffect(() => { onDoneRef.current = onDone; });
+  useEffect(() => { onCitationsRef.current = onCitations; });
+  useEffect(() => { onCardRef.current = onCard; });
+  useEffect(() => { onToolCallRef.current = onToolCall; });
+  useEffect(() => { onErrorRef.current = onError; });
+
   const [isConnected, setIsConnected] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -76,7 +90,7 @@ export function useWebSocket(
     if (!sessionId) return;
 
     const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
-    const url = `${WS_BASE_URL}/chat/ws/chat/${sessionId}${tokenParam}`;
+    const url = `${WS_BASE_URL}/ws/chat/${sessionId}${tokenParam}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -96,24 +110,24 @@ export function useWebSocket(
       switch (msg.type) {
         case "token":
           setIsStreaming(true);
-          onToken?.(msg.content);
+          onTokenRef.current?.(msg.content);
           break;
         case "done":
           setIsStreaming(false);
-          onDone?.();
+          onDoneRef.current?.();
           break;
         case "citations":
-          onCitations?.(msg.citations);
+          onCitationsRef.current?.(msg.citations);
           break;
         case "card":
-          onCard?.(msg.data);
+          onCardRef.current?.(msg.data);
           break;
         case "tool_call":
-          onToolCall?.(msg.tool);
+          onToolCallRef.current?.(msg.tool);
           break;
         case "error":
           setIsStreaming(false);
-          onError?.(msg.message);
+          onErrorRef.current?.(msg.message);
           break;
       }
     };
@@ -142,7 +156,7 @@ export function useWebSocket(
     ws.onerror = () => {
       // onclose will fire after onerror, triggering reconnect
     };
-  }, [sessionId, accessToken, onToken, onDone, onCitations, onCard, onToolCall, onError]);
+  }, [sessionId, accessToken]);
 
   useEffect(() => {
     if (!sessionId) return;

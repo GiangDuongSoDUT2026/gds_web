@@ -48,9 +48,10 @@ export function SearchBar({
 }: SearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [mode, setMode] = useState<SearchMode>(initialMode);
-  const [selectedProgramId, setSelectedProgramId] = useState<string>("");
+  const ALL = "__all__";
+  const [selectedProgramId, setSelectedProgramId] = useState<string>(ALL);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(
-    initialCourseId ?? ""
+    initialCourseId ?? ALL
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -62,7 +63,7 @@ export function SearchBar({
   const { data: courses } = useQuery({
     queryKey: queryKeys.courses.byProgram(selectedProgramId),
     queryFn: () => getCoursesByProgram(selectedProgramId),
-    enabled: !!selectedProgramId,
+    enabled: !!selectedProgramId && selectedProgramId !== ALL,
   });
 
   // Cmd+K focus shortcut
@@ -81,7 +82,7 @@ export function SearchBar({
     (e?: React.FormEvent) => {
       e?.preventDefault();
       if (!query.trim()) return;
-      onSearch(query.trim(), mode, selectedCourseId || undefined);
+      onSearch(query.trim(), mode, selectedCourseId === ALL ? undefined : selectedCourseId || undefined);
     },
     [query, mode, selectedCourseId, onSearch]
   );
@@ -174,14 +175,14 @@ export function SearchBar({
             value={selectedProgramId}
             onValueChange={(val) => {
               setSelectedProgramId(val);
-              setSelectedCourseId("");
+              setSelectedCourseId(ALL);
             }}
           >
             <SelectTrigger className="w-44">
               <SelectValue placeholder="All programs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All programs</SelectItem>
+              <SelectItem value={ALL}>All programs</SelectItem>
               {programs?.map((program) => (
                 <SelectItem key={program.id} value={program.id}>
                   {program.name}
@@ -194,13 +195,13 @@ export function SearchBar({
           <Select
             value={selectedCourseId}
             onValueChange={setSelectedCourseId}
-            disabled={!selectedProgramId}
+            disabled={!selectedProgramId || selectedProgramId === ALL}
           >
             <SelectTrigger className="w-44">
               <SelectValue placeholder="All courses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All courses</SelectItem>
+              <SelectItem value={ALL}>All courses</SelectItem>
               {courses?.map((course) => (
                 <SelectItem key={course.id} value={course.id}>
                   {course.name}

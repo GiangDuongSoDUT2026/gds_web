@@ -130,7 +130,7 @@ export interface SearchResponse {
   results: SearchResult[];
   total: number;
   query: string;
-  mode: SearchMode;
+  mode: string;
 }
 
 export interface SearchParams {

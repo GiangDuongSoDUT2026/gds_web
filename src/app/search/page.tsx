@@ -135,7 +135,7 @@ function SearchResults() {
                   key={`${result.scene_id}-${result.lecture_id}`}
                   result={result}
                   query={data.query}
-                  mode={data.mode}
+                  mode={data.mode as import("@/types/api").SearchMode}
                 />
               ))}
             </div>

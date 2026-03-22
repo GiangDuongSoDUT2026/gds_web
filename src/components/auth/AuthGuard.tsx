@@ -4,11 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
+import { TopNav } from "@/components/layout/TopNav";
 import { useAuthStore } from "@/store/useAuthStore";
 
-const PUBLIC_PATHS = ["/login", "/register"];
+// Pages with no shell at all (standalone layouts)
+const SHELL_LESS_PATHS = ["/login", "/register"];
+
+// Pages that require authentication — redirect to login if not logged in
+const PROTECTED_PREFIXES = ["/chat", "/upload"];
+
+function requiresAuth(pathname: string) {
+  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,20 +23,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
   const [hydrated, setHydrated] = useState(false);
 
-  // Wait for Zustand to rehydrate from localStorage before checking auth
   useEffect(() => {
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    if (PUBLIC_PATHS.includes(pathname)) return;
-    if (!isAuthenticated()) {
-      router.replace("/login");
+    if (SHELL_LESS_PATHS.includes(pathname)) return;
+    if (requiresAuth(pathname) && !isAuthenticated()) {
+      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
     }
   }, [hydrated, pathname, isAuthenticated, router]);
 
-  // Before Zustand hydrates: show loading instead of blank page
   if (!hydrated) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -38,13 +43,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Public pages (login, register): render without shell
-  if (PUBLIC_PATHS.includes(pathname)) {
+  // Login / register: no shell
+  if (SHELL_LESS_PATHS.includes(pathname)) {
     return <>{children}</>;
   }
 
-  // Not authenticated: show loader while redirect fires
-  if (!isAuthenticated()) {
+  // Protected page but not authenticated: show spinner while redirect fires
+  if (requiresAuth(pathname) && !isAuthenticated()) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -52,14 +57,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Authenticated: render full app shell
+  // All other pages: render with shell (public OR authenticated)
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
+    <div className="flex flex-col h-screen overflow-hidden">
+      <TopNav />
+      <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
@@ -46,10 +47,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const tokens = await login(values);
-      const user = await getMe();
+      const user = await getMe(tokens.access_token);
       setAuth(user, tokens);
       toast.success(`Welcome, ${user.full_name}!`);
-      router.push("/");
+      const returnUrl = searchParams.get("returnUrl") ?? "/";
+      router.push(returnUrl);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
