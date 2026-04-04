@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { getPrograms, getCoursesByProgram, getChaptersByCourse, chatUpload } from "@/lib/api";
 import { useUploadStore } from "@/store/useUploadStore";
+import type { ChatUploadResponse } from "@/types/api";
 
 const ACCEPTED_TYPES = {
   "video/mp4": [".mp4"],
@@ -30,7 +31,7 @@ const ACCEPTED_TYPES = {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onUploadComplete: (message: string) => void;
+  onUploadComplete: (data: ChatUploadResponse) => void;
 }
 
 export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
@@ -103,7 +104,7 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
         is_done: false,
       });
 
-      onUploadComplete(result.message);
+      onUploadComplete(result);
       onClose();
       setFiles([]);
       setProgramId(""); setCourseId(""); setChapterId("");

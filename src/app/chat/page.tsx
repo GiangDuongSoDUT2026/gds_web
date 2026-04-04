@@ -20,13 +20,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ChatCardView } from "@/components/chat/StatCard";
 import { ChatUploadDialog } from "@/components/chat/ChatUploadDialog";
+import { CitationCard } from "@/components/chat/CitationCard";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useChatStore } from "@/store/useChatStore";
 import { useChatHistoryStore } from "@/store/useChatHistoryStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { createChatSession, getLearningStats, getMyProgress, apiClient } from "@/lib/api";
-import { formatTimestamp } from "@/lib/utils";
-import type { Citation, ChatCard, LectureProgress } from "@/types/api";
+import type { Citation, ChatCard, ChatUploadResponse, LectureProgress } from "@/types/api";
 
 // ─── Chat History Sidebar (left, closable) ────────────────────────────────────
 
@@ -383,6 +383,16 @@ function ChatMessageView({
 }: {
   message: { id: string; role: string; content: string; cards?: ChatCard[]; tool_calls_used?: string[] };
 }) {
+  if (message.role === "system") {
+    return (
+      <div className="flex justify-center">
+        <p className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full max-w-[80%] text-center">
+          {message.content}
+        </p>
+      </div>
+    );
+  }
+
   const isUser = message.role === "user";
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -464,6 +474,20 @@ export default function ChatPage() {
     return () => window.removeEventListener("chat:send", handler);
   }, []);
 
+  // Listen for batch processing completion → auto notify agent in chat
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { batch_id, succeeded } = (e as CustomEvent<{ batch_id: string; succeeded: number; failed: number }>).detail;
+      if (!sessionId || !isConnected || succeeded === 0) return;
+      const msg = `${succeeded} video đã xử lý xong và sẵn sàng tìm kiếm (batch: ${batch_id}).`;
+      addMessage({ id: Date.now().toString(), role: "user" as const, content: msg });
+      addMessage({ id: (Date.now() + 1).toString(), role: "assistant" as const, content: "" });
+      send(JSON.stringify({ content: msg, history: [] }));
+    };
+    window.addEventListener("batch:processing-done", handler);
+    return () => window.removeEventListener("batch:processing-done", handler);
+  }, [sessionId, isConnected, send, addMessage]);
+
   const { send, isConnected, isStreaming } = useWebSocket(sessionId ?? "", {
     onToken: (token) => appendToLastMessage(token),
     onCitations: (citations) => {
@@ -521,9 +545,25 @@ export default function ChatPage() {
     }
   };
 
-  const handleUploadComplete = useCallback((message: string) => {
-    addMessage({ id: Date.now().toString(), role: "assistant" as const, content: message });
-  }, [addMessage]);
+  const handleUploadComplete = useCallback((data: ChatUploadResponse) => {
+    // Show API confirmation as system message (not assistant)
+    addMessage({ id: Date.now().toString(), role: "system" as const, content: data.message });
+
+    // Send WS context message so agent knows which videos were uploaded
+    if (data.accepted > 0 && sessionId) {
+      const filenames = (data.items as { status: string; filename: string }[])
+        .filter((i) => i.status === "PENDING")
+        .map((i) => i.filename)
+        .join(", ");
+      const msg = `Tôi vừa upload ${data.accepted} video (${filenames}) để xử lý AI. Batch ID: ${data.batch_id}.`;
+      addMessage({ id: (Date.now() + 1).toString(), role: "user" as const, content: msg });
+      addMessage({ id: (Date.now() + 2).toString(), role: "assistant" as const, content: "" });
+      send(JSON.stringify({
+        content: msg,
+        history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+      }));
+    }
+  }, [addMessage, send, sessionId, messages]);
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -603,25 +643,31 @@ export default function ChatPage() {
           )}
         </ScrollArea>
 
-        {/* Citations strip (inline, above input) */}
+        {/* Citations panel (inline, above input) */}
         {activeCitations.length > 0 && (
-          <div className="border-t px-4 py-2 bg-muted/40 flex items-center gap-2 overflow-x-auto shrink-0">
-            <span className="text-xs text-muted-foreground shrink-0">Sources:</span>
-            {activeCitations.map((c, i) => (
-              <Link key={i} href={c.deep_link}>
-                <Badge variant="outline" className="text-xs whitespace-nowrap hover:bg-accent cursor-pointer">
-                  {c.lecture_title} · {formatTimestamp(c.timestamp_start)}
-                </Badge>
-              </Link>
-            ))}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 shrink-0 ml-auto"
-              onClick={() => setActiveCitations([])}
-            >
-              ×
-            </Button>
+          <div className="border-t px-4 py-2 bg-muted/40 shrink-0">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Sources ({activeCitations.length})
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => setActiveCitations([])}
+                >
+                  ×
+                </Button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {activeCitations.map((c, i) => (
+                  <div key={i} className="shrink-0 w-64">
+                    <CitationCard citation={c} index={i} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

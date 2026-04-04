@@ -177,7 +177,7 @@ export function useWebSocket(
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     setIsStreaming(true);
-    ws.send(JSON.stringify({ content, role: "user" }));
+    ws.send(content);
   }, []);
 
   const reconnect = useCallback(() => {

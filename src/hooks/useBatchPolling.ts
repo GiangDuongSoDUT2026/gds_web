@@ -28,6 +28,19 @@ export function useBatchPolling() {
                 `Upload kết thúc: ${data.succeeded} thành công, ${data.failed} thất bại trên ${data.total} video`
               );
             }
+            // Notify chat page to send a WS context message
+            if (data.succeeded > 0) {
+              window.dispatchEvent(
+                new CustomEvent("batch:processing-done", {
+                  detail: {
+                    batch_id: batch.batch_id,
+                    succeeded: data.succeeded,
+                    failed: data.failed,
+                    items: data.items ?? [],
+                  },
+                })
+              );
+            }
           }
         } catch {
           // ignore polling errors

@@ -8,7 +8,7 @@ const nextConfig = {
       },
       {
         source: "/chat/:path*",
-        destination: "http://localhost:8001/:path*",
+        destination: "http://localhost:8002/:path*",
       },
     ];
   },
@@ -29,7 +29,7 @@ const nextConfig = {
       {
         protocol: "http",
         hostname: "localhost",
-        port: "8001",
+        port: "8002",
         pathname: "/**",
       },
       {
