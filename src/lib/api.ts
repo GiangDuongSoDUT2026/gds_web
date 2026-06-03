@@ -25,6 +25,7 @@ import type {
   LectureProgress,
   LearningStats,
   RecommendedLecture,
+  Notification,
 } from "@/types/api";
 
 // ─── Axios Instance ───────────────────────────────────────────────────────────
@@ -337,4 +338,15 @@ export async function logLearningEvent(event: {
   payload?: Record<string, unknown>;
 }): Promise<void> {
   await apiClient.post("/api/v1/progress/events", event);
+}
+
+// ─── Pipeline Notifications ────────────────────────────────────────────────────
+
+export async function getNotifications(): Promise<Notification[]> {
+  const { data } = await apiClient.get<Notification[]>("/api/v1/pipeline/notifications");
+  return data;
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await apiClient.patch(`/api/v1/pipeline/notifications/${notificationId}/read`);
 }

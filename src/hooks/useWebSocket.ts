@@ -4,8 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatCard, Citation, WsMessage } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
-const WS_BASE_URL =
-  process.env.NEXT_PUBLIC_WS_BASE_URL ?? "ws://localhost:80";
+// Derive WebSocket host from current browser location so the app works
+// regardless of how it's accessed (localhost, Tailscale IP, domain, etc.)
+function getWsBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_WS_BASE_URL ?? "ws://localhost:8002";
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.hostname;
+  return `${proto}//${host}:8002`;
+}
+
+const WS_BASE_URL = getWsBaseUrl();
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY_MS = 1_000;

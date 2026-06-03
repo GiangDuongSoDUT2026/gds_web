@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { TopNav } from "@/components/layout/TopNav";
@@ -10,30 +10,41 @@ import { useAuthStore } from "@/store/useAuthStore";
 // Pages with no shell at all (standalone layouts)
 const SHELL_LESS_PATHS = ["/login", "/register"];
 
-// Pages that require authentication — redirect to login if not logged in
-const PROTECTED_PREFIXES = ["/chat", "/upload"];
-
-function requiresAuth(pathname: string) {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
-}
+// DEMO MODE: no auth required for any page
+const DEMO_USER = {
+  id: "00000000-0000-0000-0000-000000000001",
+  email: "demo@gds.edu.vn",
+  full_name: "Demo Teacher",
+  role: "TEACHER" as const,
+  organization_id: null,
+  faculty: null,
+  department: null,
+  teacher_code: "DEMO01",
+  major: null,
+  student_code: null,
+  is_active: true,
+};
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, setAuth } = useAuthStore();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
+  // Auto-login demo user if not authenticated
   useEffect(() => {
     if (!hydrated) return;
-    if (SHELL_LESS_PATHS.includes(pathname)) return;
-    if (requiresAuth(pathname) && !isAuthenticated()) {
-      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
+    if (!isAuthenticated()) {
+      setAuth(DEMO_USER, {
+        access_token: "demo-token",
+        refresh_token: "demo-refresh",
+        token_type: "bearer",
+      });
     }
-  }, [hydrated, pathname, isAuthenticated, router]);
+  }, [hydrated, isAuthenticated, setAuth]);
 
   if (!hydrated) {
     return (
@@ -48,16 +59,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Protected page but not authenticated: show spinner while redirect fires
-  if (requiresAuth(pathname) && !isAuthenticated()) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // All other pages: render with shell (public OR authenticated)
+  // All pages: render with shell
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav />

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import { useQuery } from "@tanstack/react-query";
-import { Upload, X, FileVideo, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Upload, X, FileVideo, Loader2, Plus, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { getPrograms, getCoursesByProgram, getChaptersByCourse, chatUpload } from "@/lib/api";
+import {
+  getPrograms, getCoursesByProgram, getChaptersByCourse, chatUpload,
+  createProgram, createCourse, createChapter,
+} from "@/lib/api";
 import { useUploadStore } from "@/store/useUploadStore";
 import type { ChatUploadResponse } from "@/types/api";
 
@@ -27,6 +31,61 @@ const ACCEPTED_TYPES = {
   "video/mpeg": [".mpeg", ".mpg"],
   "video/x-matroska": [".mkv"],
 };
+
+const NEW_ITEM_VALUE = "__new__";
+
+interface InlineCreateProps {
+  placeholder: string;
+  onCreate: (name: string) => Promise<void>;
+  onCancel: () => void;
+}
+
+function InlineCreate({ placeholder, onCreate, onCancel }: InlineCreateProps) {
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleCreate = async () => {
+    const name = value.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      await onCreate(name);
+      setValue("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 px-1 py-1.5">
+      <Input
+        ref={inputRef}
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        className="h-7 text-sm flex-1"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleCreate();
+          if (e.key === "Escape") onCancel();
+        }}
+      />
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-7 w-7 shrink-0"
+        onClick={handleCreate}
+        disabled={!value.trim() || saving}
+      >
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-green-600" />}
+      </Button>
+      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onCancel}>
+        <X className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -41,7 +100,14 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
   const [chapterId, setChapterId] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  // Inline create states
+  const [addingProgram, setAddingProgram] = useState(false);
+  const [addingCourse, setAddingCourse] = useState(false);
+  const [addingChapter, setAddingChapter] = useState(false);
+
   const { addBatch } = useUploadStore();
+  const queryClient = useQueryClient();
 
   const { data: programs = [] } = useQuery({
     queryKey: ["programs"],
@@ -60,6 +126,69 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
     queryFn: () => getChaptersByCourse(courseId),
     enabled: !!courseId,
   });
+
+  // ── Handlers for select change (intercept __new__) ──────────────────────────
+
+  const handleProgramChange = (v: string) => {
+    if (v === NEW_ITEM_VALUE) { setAddingProgram(true); return; }
+    setProgramId(v); setCourseId(""); setChapterId("");
+    setAddingProgram(false); setAddingCourse(false); setAddingChapter(false);
+  };
+
+  const handleCourseChange = (v: string) => {
+    if (v === NEW_ITEM_VALUE) { setAddingCourse(true); return; }
+    setCourseId(v); setChapterId("");
+    setAddingCourse(false); setAddingChapter(false);
+  };
+
+  const handleChapterChange = (v: string) => {
+    if (v === NEW_ITEM_VALUE) { setAddingChapter(true); return; }
+    setChapterId(v);
+    setAddingChapter(false);
+  };
+
+  // ── Inline create handlers ───────────────────────────────────────────────────
+
+  const handleCreateProgram = async (name: string) => {
+    try {
+      const p = await createProgram({ name, description: "" });
+      await queryClient.invalidateQueries({ queryKey: ["programs"] });
+      setProgramId(p.id); setCourseId(""); setChapterId("");
+      setAddingProgram(false);
+      toast.success(`Đã tạo chương trình "${name}"`);
+    } catch {
+      toast.error("Không thể tạo chương trình");
+    }
+  };
+
+  const handleCreateCourse = async (name: string) => {
+    try {
+      const c = await createCourse(programId, { name, code: "", description: "" });
+      await queryClient.invalidateQueries({ queryKey: ["courses", programId] });
+      setCourseId(c.id); setChapterId("");
+      setAddingCourse(false);
+      toast.success(`Đã tạo môn học "${name}"`);
+    } catch {
+      toast.error("Không thể tạo môn học");
+    }
+  };
+
+  const handleCreateChapter = async (name: string) => {
+    try {
+      const ch = await createChapter(courseId, {
+        title: name,
+        order_index: chapters.length + 1,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["chapters", courseId] });
+      setChapterId(ch.id);
+      setAddingChapter(false);
+      toast.success(`Đã tạo chương "${name}"`);
+    } catch {
+      toast.error("Không thể tạo chương");
+    }
+  };
+
+  // ── Dropzone ─────────────────────────────────────────────────────────────────
 
   const onDrop = useCallback((accepted: File[]) => {
     setFiles((prev) => {
@@ -91,8 +220,6 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
     setProgress(0);
     try {
       const result = await chatUpload(files, chapterId, setProgress);
-
-      // Register batch for polling
       addBatch({
         batch_id: result.batch_id,
         total: result.total,
@@ -103,7 +230,8 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
         items: [],
         is_done: false,
       });
-
+      // Refresh sidebar immediately so new uploads appear with PENDING status
+      queryClient.invalidateQueries({ queryKey: ["recent-lectures-context"] });
       onUploadComplete(result);
       onClose();
       setFiles([]);
@@ -138,7 +266,9 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
             <Label className="text-xs text-muted-foreground uppercase tracking-wide">
               Chọn vị trí lưu *
             </Label>
-            <Select value={programId} onValueChange={(v) => { setProgramId(v); setCourseId(""); setChapterId(""); }}>
+
+            {/* Program */}
+            <Select value={programId} onValueChange={handleProgramChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Chọn chương trình..." />
               </SelectTrigger>
@@ -146,33 +276,75 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
                 {programs.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
+                <SelectItem value={NEW_ITEM_VALUE}>
+                  <span className="flex items-center gap-1.5 text-primary">
+                    <Plus className="h-3.5 w-3.5" /> Thêm chương trình mới
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
-
-            {programId && (
-              <Select value={courseId} onValueChange={(v) => { setCourseId(v); setChapterId(""); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn môn học..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {addingProgram && (
+              <InlineCreate
+                placeholder="Tên chương trình..."
+                onCreate={handleCreateProgram}
+                onCancel={() => setAddingProgram(false)}
+              />
             )}
 
+            {/* Course */}
+            {programId && (
+              <>
+                <Select value={courseId} onValueChange={handleCourseChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn môn học..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                    <SelectItem value={NEW_ITEM_VALUE}>
+                      <span className="flex items-center gap-1.5 text-primary">
+                        <Plus className="h-3.5 w-3.5" /> Thêm môn học mới
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {addingCourse && (
+                  <InlineCreate
+                    placeholder="Tên môn học..."
+                    onCreate={handleCreateCourse}
+                    onCancel={() => setAddingCourse(false)}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Chapter */}
             {courseId && (
-              <Select value={chapterId} onValueChange={setChapterId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn chương..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {chapters.map((ch) => (
-                    <SelectItem key={ch.id} value={ch.id}>{ch.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={chapterId} onValueChange={handleChapterChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn chương..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chapters.map((ch) => (
+                      <SelectItem key={ch.id} value={ch.id}>{ch.title}</SelectItem>
+                    ))}
+                    <SelectItem value={NEW_ITEM_VALUE}>
+                      <span className="flex items-center gap-1.5 text-primary">
+                        <Plus className="h-3.5 w-3.5" /> Thêm chương mới
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {addingChapter && (
+                  <InlineCreate
+                    placeholder="Tên chương..."
+                    onCreate={handleCreateChapter}
+                    onCancel={() => setAddingChapter(false)}
+                  />
+                )}
+              </>
             )}
           </div>
 
@@ -185,9 +357,7 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
             <input {...getInputProps()} />
             <FileVideo className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {isDragActive
-                ? "Thả video vào đây..."
-                : "Kéo thả hoặc click để chọn video (tối đa 10 file)"}
+              {isDragActive ? "Thả video vào đây..." : "Kéo thả hoặc click để chọn video (tối đa 10 file)"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               MP4, MOV, AVI, WebM, MKV — tối đa 10 GB/file
@@ -230,10 +400,7 @@ export function ChatUploadDialog({ open, onClose, onUploadComplete }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={uploading}>Hủy</Button>
-          <Button
-            onClick={handleUpload}
-            disabled={uploading || files.length === 0 || !chapterId}
-          >
+          <Button onClick={handleUpload} disabled={uploading || files.length === 0 || !chapterId}>
             {uploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang upload...</>
             ) : (

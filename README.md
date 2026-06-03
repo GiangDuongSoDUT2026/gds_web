@@ -351,3 +351,94 @@ Nếu để trống, Next.js rewrites tự proxy:
 **Upload bị lỗi CORS:**
 - Đảm bảo backend CORS đã cho phép `http://localhost:3000`
 - API config mặc định `allow_origins=["*"]` nên không bị CORS trong dev
+
+---
+
+## Deploy Production (Vercel)
+
+### Biến môi trường trên Vercel
+
+```env
+BACKEND_API_URL=https://your-gcp-vm-domain-or-ip
+CHATBOT_URL=https://gds-chatbot.fly.dev
+NEXT_PUBLIC_WS_BASE_URL=wss://gds-chatbot.fly.dev
+```
+
+### Cập nhật next.config.mjs cho production
+
+```js
+const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
+const chatbotUrl = process.env.CHATBOT_URL    || 'http://localhost:8002';
+
+const nextConfig = {
+  async rewrites() {
+    return [
+      { source: '/api/v1/:path*', destination: `${backendUrl}/api/v1/:path*` },
+      { source: '/chat/:path*',   destination: `${chatbotUrl}/:path*` },
+      { source: '/files/:path*',  destination: `${backendUrl}/files/:path*` },
+    ];
+  },
+};
+```
+
+### Deploy
+
+```bash
+cd gds_web
+vercel login
+vercel deploy --prod
+```
+
+---
+
+## Tính năng mới cho production
+
+### Processing Status (SSE)
+
+Teacher theo dõi tiến trình xử lý video theo thời gian thực qua SSE:
+
+```typescript
+// Hook mới: useProcessingStream.ts
+const useProcessingStream = (lectureId: string) => {
+  const [progress, setProgress] = useState({ stage: '', pct: 0 });
+
+  useEffect(() => {
+    const es = new EventSource(`/api/v1/lectures/${lectureId}/progress-stream`);
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      setProgress({ stage: data.current_stage, pct: data.progress_pct });
+      if (data.status === 'COMPLETED' || data.status === 'FAILED') es.close();
+    };
+    return () => es.close();
+  }, [lectureId]);
+
+  return progress;
+};
+```
+
+### Processing Modes hiển thị trong UI
+
+```
+QUEUED_FOR_GPU  → "Đang chờ GPU — sẽ xử lý vào cuối ngày"  (badge màu vàng)
+DISPATCHED      → "Đang gửi tới GPU server..."              (spinner)
+SCENE_DETECTING → "Phát hiện cảnh [15%]"                   (progress bar)
+ASR             → "Nhận dạng giọng nói [40%]"
+OCR             → "Nhận dạng văn bản [65%]"
+EMBEDDING       → "Tạo embedding [85%]"
+COMPLETED       → "Hoàn thành"                              (badge xanh)
+FAILED          → "Lỗi xử lý"                              (badge đỏ, có retry)
+```
+
+### Notifications
+
+```typescript
+// Poll notifications mỗi 30s hoặc dùng WS event
+GET /api/v1/notifications?unread_only=true
+
+// Khi teacher upload xong và QUEUED_FOR_GPU:
+// → toast: "Video đã upload. Sẽ xử lý khi GPU server online."
+
+// Khi COMPLETED:
+// → toast.success: "Video 'Bài giảng Giải tích 3' đã xử lý xong!"
+// → link deep: /lectures/{id}
+```

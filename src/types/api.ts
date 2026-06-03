@@ -41,6 +41,7 @@ export interface Scene {
 
 export type LectureStatus =
   | "PENDING"
+  | "QUEUED_FOR_GPU"
   | "DOWNLOADING"
   | "SCENE_DETECTING"
   | "ASR"
@@ -151,6 +152,7 @@ export interface Citation {
   keyframe_url: string | null;
   deep_link: string;
   lecture_id?: string;
+  video_url?: string | null;
 }
 
 export type MessageRole = "user" | "assistant" | "system";
@@ -361,4 +363,16 @@ export interface RecommendedLecture {
   last_position_sec: number;
   duration_sec: number | null;
   keyframe_url: string | null;
+}
+
+// ─── Pipeline Notifications ───────────────────────────────────────────────────
+
+export interface Notification {
+  id: string;
+  lecture_id: string | null;
+  lecture_title: string | null;
+  event: "COMPLETED" | "FAILED";
+  message: string;
+  is_read: boolean;
+  created_at: string;
 }

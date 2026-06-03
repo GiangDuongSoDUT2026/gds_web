@@ -5,8 +5,8 @@ import { useDropzone } from "react-dropzone";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { UploadCloud, File, X, Loader2, Files } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { UploadCloud, File, X, Loader2, Files, Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProcessingStatus } from "@/components/lecture/ProcessingStatus";
-import { getPrograms, getCoursesByProgram, getChaptersByCourse, uploadVideo, uploadVideoBulk } from "@/lib/api";
+import {
+  getPrograms,
+  getCoursesByProgram,
+  getChaptersByCourse,
+  uploadVideo,
+  uploadVideoBulk,
+  createProgram,
+  createCourse,
+  createChapter,
+} from "@/lib/api";
 import { useUploadStore } from "@/store/useUploadStore";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
+
+const CREATE_VALUE = "__create__";
 
 const uploadSchema = z.object({
   title: z.string().max(200).optional(),
@@ -45,6 +63,8 @@ const uploadSchema = z.object({
 
 type UploadFormValues = z.infer<typeof uploadSchema>;
 
+type CreateDialog = "program" | "course" | "chapter" | null;
+
 export function UploadForm() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -55,7 +75,13 @@ export function UploadForm() {
   } | null>(null);
   const [batchResult, setBatchResult] = useState<{ batch_id: string; total: number } | null>(null);
 
+  // Create-new dialog state
+  const [createDialog, setCreateDialog] = useState<CreateDialog>(null);
+  const [createName, setCreateName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
   const { addBatch } = useUploadStore();
+  const queryClient = useQueryClient();
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
@@ -88,6 +114,73 @@ export function UploadForm() {
     queryFn: () => getChaptersByCourse(courseId),
     enabled: !!courseId,
   });
+
+  // Handle Select change — intercept the special __create__ value
+  const handleProgramChange = (val: string) => {
+    if (val === CREATE_VALUE) {
+      setCreateName("");
+      setCreateDialog("program");
+      return;
+    }
+    form.setValue("programId", val);
+    form.setValue("courseId", "");
+    form.setValue("chapterId", "");
+  };
+
+  const handleCourseChange = (val: string) => {
+    if (val === CREATE_VALUE) {
+      setCreateName("");
+      setCreateDialog("course");
+      return;
+    }
+    form.setValue("courseId", val);
+    form.setValue("chapterId", "");
+  };
+
+  const handleChapterChange = (val: string) => {
+    if (val === CREATE_VALUE) {
+      setCreateName("");
+      setCreateDialog("chapter");
+      return;
+    }
+    form.setValue("chapterId", val);
+  };
+
+  // Create handlers
+  const handleCreateSubmit = async () => {
+    if (!createName.trim()) return;
+    setIsCreating(true);
+    try {
+      if (createDialog === "program") {
+        const created = await createProgram({ name: createName.trim(), description: "" });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.programs.all() });
+        form.setValue("programId", created.id);
+        form.setValue("courseId", "");
+        form.setValue("chapterId", "");
+        toast.success(`Program "${created.name}" created`);
+      } else if (createDialog === "course") {
+        if (!programId) { toast.error("Select a program first"); return; }
+        const created = await createCourse(programId, { name: createName.trim(), code: "", description: "" });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.courses.byProgram(programId) });
+        form.setValue("courseId", created.id);
+        form.setValue("chapterId", "");
+        toast.success(`Course "${created.name}" created`);
+      } else if (createDialog === "chapter") {
+        if (!courseId) { toast.error("Select a course first"); return; }
+        const nextIndex = (chapters?.length ?? 0) + 1;
+        const created = await createChapter(courseId, { title: createName.trim(), order_index: nextIndex });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.chapters.byCourse(courseId) });
+        form.setValue("chapterId", created.id);
+        toast.success(`Chapter "${created.title}" created`);
+      }
+      setCreateDialog(null);
+      setCreateName("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -216,233 +309,278 @@ export function UploadForm() {
     );
   }
 
+  const dialogTitle =
+    createDialog === "program" ? "Create new Program" :
+    createDialog === "course" ? "Create new Course" :
+    "Create new Chapter";
+
+  const dialogPlaceholder =
+    createDialog === "program" ? "e.g. Computer Science" :
+    createDialog === "course" ? "e.g. Introduction to AI" :
+    "e.g. Week 1: Introduction";
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Upload Lecture Video</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Drag-drop zone */}
-            <div
-              {...getRootProps()}
-              className={cn(
-                "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
-                isDragActive
-                  ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-primary/50",
-                isUploading && "cursor-not-allowed opacity-50"
-              )}
-            >
-              <input {...getInputProps()} />
-              {selectedFiles.length > 0 ? (
-                <div className="w-full space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium mb-3">
-                    <Files className="h-5 w-5 text-primary" />
-                    <span>{selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected</span>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {selectedFiles.map((file, i) => (
-                      <div key={i} className="flex items-center justify-between gap-2 rounded px-2 py-1 bg-muted text-sm">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <File className="h-4 w-4 text-primary shrink-0" />
-                          <span className="truncate">{file.name}</span>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {(file.size / 1024 / 1024).toFixed(1)} MB
-                          </Badge>
+    <>
+      {/* Create-new Dialog */}
+      <Dialog open={createDialog !== null} onOpenChange={(open) => { if (!open) setCreateDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder={dialogPlaceholder}
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleCreateSubmit(); } }}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialog(null)} disabled={isCreating}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSubmit} disabled={isCreating || !createName.trim()}>
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Lecture Video</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Drag-drop zone */}
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
+                  isDragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50",
+                  isUploading && "cursor-not-allowed opacity-50"
+                )}
+              >
+                <input {...getInputProps()} />
+                {selectedFiles.length > 0 ? (
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium mb-3">
+                      <Files className="h-5 w-5 text-primary" />
+                      <span>{selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected</span>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {selectedFiles.map((file, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 rounded px-2 py-1 bg-muted text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <File className="h-4 w-4 text-primary shrink-0" />
+                            <span className="truncate">{file.name}</span>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {(file.size / 1024 / 1024).toFixed(1)} MB
+                            </Badge>
+                          </div>
+                          {!isUploading && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFile(i);
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
-                        {!isUploading && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeFile(i);
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    {!isUploading && (
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Click or drag to add more files
+                      </p>
+                    )}
                   </div>
-                  {!isUploading && (
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      Click or drag to add more files
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <UploadCloud className="h-10 w-10 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">
-                      {isDragActive
-                        ? "Drop video files here"
-                        : "Drag & drop video files here"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      or click to browse — supports MP4, MOV, AVI, MKV (up to 20 files)
-                    </p>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <UploadCloud className="h-10 w-10 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">
+                        {isDragActive
+                          ? "Drop video files here"
+                          : "Drag & drop video files here"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        or click to browse — supports MP4, MOV, AVI, MKV (up to 20 files)
+                      </p>
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Upload progress */}
+              {isUploading && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Uploading...</span>
+                    <span className="font-medium">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
                 </div>
               )}
-            </div>
 
-            {/* Upload progress */}
-            {isUploading && (
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Uploading...</span>
-                  <span className="font-medium">{uploadProgress}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
-              </div>
-            )}
+              {/* Form fields — title only shown for single file */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {selectedFiles.length <= 1 && (
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Lecture Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Introduction to Machine Learning" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-            {/* Form fields — title only shown for single file */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              {selectedFiles.length <= 1 && (
+                {/* Program selector */}
                 <FormField
                   control={form.control}
-                  name="title"
+                  name="programId"
                   render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Lecture Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Introduction to Machine Learning" {...field} />
-                      </FormControl>
+                    <FormItem>
+                      <FormLabel>Program</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={handleProgramChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select program" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {programs?.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value={CREATE_VALUE} className="text-primary font-medium border-t mt-1 pt-2">
+                            <span className="flex items-center gap-1.5">
+                              <Plus className="h-3.5 w-3.5" /> Create new program...
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
 
-              {/* Program selector */}
-              <FormField
-                control={form.control}
-                name="programId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Program</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        form.setValue("courseId", "");
-                        form.setValue("chapterId", "");
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select program" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {programs?.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Course selector */}
-              <FormField
-                control={form.control}
-                name="courseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Course</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        form.setValue("chapterId", "");
-                      }}
-                      disabled={!programId || !courses}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select course" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {courses?.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Chapter selector */}
-              <FormField
-                control={form.control}
-                name="chapterId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Chapter</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={!courseId || !chapters}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select chapter" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {chapters
-                          ?.slice()
-                          .sort((a, b) => a.order_index - b.order_index)
-                          .map((ch) => (
-                            <SelectItem key={ch.id} value={ch.id}>
-                              {ch.order_index}. {ch.title}
+                {/* Course selector */}
+                <FormField
+                  control={form.control}
+                  name="courseId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Course</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={handleCourseChange}
+                        disabled={!programId}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={programId ? "Select course" : "Select program first"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {courses?.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                          <SelectItem value={CREATE_VALUE} className="text-primary font-medium border-t mt-1 pt-2">
+                            <span className="flex items-center gap-1.5">
+                              <Plus className="h-3.5 w-3.5" /> Create new course...
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <Button
-              type="submit"
-              disabled={isUploading || selectedFiles.length === 0}
-              className="w-full gap-2"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading{selectedFiles.length > 1 ? ` ${selectedFiles.length} files` : ""}...
-                </>
-              ) : (
-                <>
-                  <UploadCloud className="h-4 w-4" />
-                  {selectedFiles.length > 1
-                    ? `Upload ${selectedFiles.length} Files`
-                    : "Upload Lecture"}
-                </>
-              )}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+                {/* Chapter selector */}
+                <FormField
+                  control={form.control}
+                  name="chapterId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Chapter</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={handleChapterChange}
+                        disabled={!courseId}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={courseId ? "Select chapter" : "Select course first"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {chapters
+                            ?.slice()
+                            .sort((a, b) => a.order_index - b.order_index)
+                            .map((ch) => (
+                              <SelectItem key={ch.id} value={ch.id}>
+                                {ch.order_index}. {ch.title}
+                              </SelectItem>
+                            ))}
+                          <SelectItem value={CREATE_VALUE} className="text-primary font-medium border-t mt-1 pt-2">
+                            <span className="flex items-center gap-1.5">
+                              <Plus className="h-3.5 w-3.5" /> Create new chapter...
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isUploading || selectedFiles.length === 0}
+                className="w-full gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading{selectedFiles.length > 1 ? ` ${selectedFiles.length} files` : ""}...
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="h-4 w-4" />
+                    {selectedFiles.length > 1
+                      ? `Upload ${selectedFiles.length} Files`
+                      : "Upload Lecture"}
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </>
   );
 }

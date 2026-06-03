@@ -21,11 +21,13 @@ import { Separator } from "@/components/ui/separator";
 import { ChatCardView } from "@/components/chat/StatCard";
 import { ChatUploadDialog } from "@/components/chat/ChatUploadDialog";
 import { CitationCard } from "@/components/chat/CitationCard";
+import { VideoPopupDialog } from "@/components/chat/VideoPopupDialog";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useChatStore } from "@/store/useChatStore";
 import { useChatHistoryStore } from "@/store/useChatHistoryStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { createChatSession, getLearningStats, getMyProgress, apiClient } from "@/lib/api";
+import { formatTimestamp, toProxiedUrl, toVideoStreamUrl } from "@/lib/utils";
 import type { Citation, ChatCard, ChatUploadResponse, LectureProgress } from "@/types/api";
 
 // ─── Chat History Sidebar (left, closable) ────────────────────────────────────
@@ -34,10 +36,12 @@ function ChatHistorySidebar({
   onClose,
   currentSessionId,
   onNewChat,
+  onSelectSession,
 }: {
   onClose: () => void;
   currentSessionId: string | null;
   onNewChat: () => void;
+  onSelectSession: (id: string) => void;
 }) {
   const { items, pin, remove } = useChatHistoryStore();
 
@@ -83,6 +87,7 @@ function ChatHistorySidebar({
                     active={item.id === currentSessionId}
                     onPin={pin}
                     onRemove={remove}
+                    onSelect={() => onSelectSession(item.id)}
                   />
                 ))}
                 {recent.length > 0 && <Separator className="my-2" />}
@@ -102,6 +107,7 @@ function ChatHistorySidebar({
                     active={item.id === currentSessionId}
                     onPin={pin}
                     onRemove={remove}
+                    onSelect={() => onSelectSession(item.id)}
                   />
                 ))}
               </>
@@ -118,11 +124,13 @@ function ChatHistoryItem({
   active,
   onPin,
   onRemove,
+  onSelect,
 }: {
   item: { id: string; title: string; preview: string; createdAt: number; pinned: boolean };
   active: boolean;
   onPin: (id: string, pinned: boolean) => void;
   onRemove: (id: string) => void;
+  onSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -130,7 +138,8 @@ function ChatHistoryItem({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`group flex items-start gap-2 rounded-md px-2 py-2 cursor-default transition-colors ${
+      onClick={onSelect}
+      className={`group flex items-start gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors ${
         active ? "bg-primary/10 text-primary" : "hover:bg-accent"
       }`}
     >
@@ -246,18 +255,37 @@ function TeacherContextPanel() {
       const { data } = await apiClient.get("/api/v1/lectures/?limit=5");
       return data as { id: string; title: string; status: string }[];
     },
-    staleTime: 60 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 10 * 1000,
+    refetchInterval: (query) => {
+      // Poll nhanh hơn khi đang có video đang xử lý
+      const data = query.state.data as { status: string }[] | undefined;
+      const hasProcessing = data?.some((l) =>
+        !["COMPLETED", "FAILED"].includes(l.status)
+      );
+      return hasProcessing ? 5_000 : 30_000;
+    },
   });
 
   const STATUS_COLOR: Record<string, string> = {
     COMPLETED: "text-green-600",
     FAILED: "text-red-500",
     PENDING: "text-muted-foreground",
-    EMBEDDING: "text-blue-500",
+    DOWNLOADING: "text-blue-500",
+    SCENE_DETECTING: "text-blue-500",
     ASR: "text-blue-500",
     OCR: "text-blue-500",
-    SCENE_DETECTING: "text-blue-500",
+    EMBEDDING: "text-blue-500",
+  };
+
+  const STATUS_LABEL: Record<string, string> = {
+    COMPLETED: "✓",
+    FAILED: "✗",
+    PENDING: "chờ...",
+    DOWNLOADING: "⬇ tải",
+    SCENE_DETECTING: "⚙ scene",
+    ASR: "⚙ ASR",
+    OCR: "⚙ OCR",
+    EMBEDDING: "⚙ embed",
   };
 
   if (isLoading) {
@@ -281,7 +309,7 @@ function TeacherContextPanel() {
                 <Video className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <p className="text-xs flex-1 truncate">{l.title}</p>
                 <span className={`text-[10px] font-medium shrink-0 ${STATUS_COLOR[l.status] ?? "text-muted-foreground"}`}>
-                  {l.status}
+                  {STATUS_LABEL[l.status] ?? l.status}
                 </span>
               </div>
             </Link>
@@ -378,10 +406,163 @@ function VideoHistoryPanel() {
 
 // ─── Chat Message ─────────────────────────────────────────────────────────────
 
+/** Simple inline markdown: **bold**, * bullet lists, line breaks */
+function SimpleMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div className="space-y-1">
+      {lines.map((line, i) => {
+        // Bullet point
+        if (line.match(/^\*\s+/)) {
+          const content = line.replace(/^\*\s+/, "");
+          return (
+            <div key={i} className="flex gap-2">
+              <span className="mt-0.5 shrink-0 text-primary">•</span>
+              <span>{renderBold(content)}</span>
+            </div>
+          );
+        }
+        if (line.trim() === "") return <div key={i} className="h-1" />;
+        return <p key={i}>{renderBold(line)}</p>;
+      })}
+    </div>
+  );
+}
+
+function renderBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
+/** Inline video player — thumbnail by default, click to stream video directly */
+function InlineCitationPlayer({
+  citation,
+  allCitations,
+}: {
+  citation: Citation;
+  allCitations: Citation[];
+}) {
+  const [playing, setPlaying] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [activeCitation, setActiveCitation] = useState<Citation>(citation);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hasSeeked = useRef(false);
+
+  // Resolve video URL: use direct video_url, or fall back to deep_link lecture_id
+  const lectureIdFromDeepLink = citation.deep_link?.match(/\/lectures\/([0-9a-f-]{36})/i)?.[1];
+  const effectiveLectureId = citation.lecture_id || lectureIdFromDeepLink || "";
+  const videoUrl = citation.video_url || null;
+  const hasVideo = !!videoUrl;
+
+  // Seek to timestamp once video is ready
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !playing) return;
+
+    const handleCanPlay = () => {
+      if (!hasSeeked.current && citation.timestamp_start > 0) {
+        video.currentTime = citation.timestamp_start;
+        hasSeeked.current = true;
+      }
+      video.play().catch(() => {});
+    };
+
+    video.addEventListener("canplay", handleCanPlay);
+    return () => video.removeEventListener("canplay", handleCanPlay);
+  }, [playing, citation.timestamp_start, videoUrl]);
+
+  if (!citation.keyframe_url && !citation.lecture_title) return null;
+
+  return (
+    <>
+      <div className="shrink-0 w-52 rounded-lg border overflow-hidden bg-card">
+        {/* Video / Thumbnail area */}
+        {playing && hasVideo ? (
+          <div className="bg-black aspect-video">
+            <video
+              ref={videoRef}
+              key={videoUrl}
+              src={toVideoStreamUrl(videoUrl!)}
+              controls
+              className="w-full h-full"
+            />
+          </div>
+        ) : (
+          <button
+            className={`relative w-full aspect-video bg-muted overflow-hidden group block ${
+              hasVideo ? "cursor-pointer" : "cursor-default"
+            }`}
+            onClick={() => {
+              if (hasVideo) {
+                hasSeeked.current = false;
+                setPlaying(true);
+              }
+            }}
+          >
+            {citation.keyframe_url ? (
+              <img
+                src={toProxiedUrl(citation.keyframe_url)}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <BookOpen className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+            {hasVideo && (
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow">
+                  <Video className="h-5 w-5 text-primary ml-0.5" />
+                </div>
+              </div>
+            )}
+            <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+              {formatTimestamp(citation.timestamp_start)}
+            </span>
+          </button>
+        )}
+
+        {/* Info + actions */}
+        <div className="p-2 space-y-1.5">
+          <p className="text-xs font-medium line-clamp-1 leading-tight">{citation.lecture_title}</p>
+          <p className="text-[10px] text-muted-foreground line-clamp-1">{citation.chapter_title}</p>
+          {hasVideo && (
+            <button
+              onClick={() => setPopupOpen(true)}
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              <Video className="h-3 w-3" /> Xem toàn màn hình
+            </button>
+          )}
+        </div>
+      </div>
+
+      {hasVideo && (
+        <VideoPopupDialog
+          open={popupOpen}
+          onClose={() => setPopupOpen(false)}
+          lectureId={effectiveLectureId}
+          timestampStart={activeCitation.timestamp_start}
+          lectureTitle={activeCitation.lecture_title}
+          videoUrl={activeCitation.video_url}
+          relatedCitations={allCitations}
+          onOpenCitation={(c) => setActiveCitation(c)}
+        />
+      )}
+    </>
+  );
+}
+
 function ChatMessageView({
   message,
 }: {
-  message: { id: string; role: string; content: string; cards?: ChatCard[]; tool_calls_used?: string[] };
+  message: { id: string; role: string; content: string; citations?: Citation[]; cards?: ChatCard[]; tool_calls_used?: string[] };
 }) {
   if (message.role === "system") {
     return (
@@ -394,6 +575,9 @@ function ChatMessageView({
   }
 
   const isUser = message.role === "user";
+  const citations = message.citations ?? [];
+  const citationsToShow = citations.filter((c) => c.keyframe_url || c.lecture_title);
+
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && (
@@ -401,16 +585,26 @@ function ChatMessageView({
           <Bot className="h-4 w-4 text-primary" />
         </div>
       )}
-      <div className={`max-w-[80%] space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+      <div className={`max-w-[85%] space-y-3 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
         <div
-          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
             isUser
               ? "bg-primary text-primary-foreground rounded-br-sm"
               : "bg-muted rounded-bl-sm"
           }`}
         >
-          {message.content}
+          {isUser ? message.content : <SimpleMarkdown text={message.content} />}
         </div>
+
+        {/* Inline video players per citation */}
+        {!isUser && citationsToShow.length > 0 && (
+          <div className="flex gap-3 overflow-x-auto pb-1 max-w-full">
+            {citationsToShow.map((c, i) => (
+              <InlineCitationPlayer key={i} citation={c} allCitations={citations} />
+            ))}
+          </div>
+        )}
+
         {message.cards?.map((card, i) => <ChatCardView key={i} card={card} />)}
         {message.tool_calls_used && message.tool_calls_used.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -438,9 +632,9 @@ export default function ChatPage() {
   const {
     sessionId, messages,
     setSessionId, addMessage, appendToLastMessage, setLastMessageCitations,
-    addCardToLastMessage, clearSession,
+    addCardToLastMessage, clearSession, restoreSession,
   } = useChatStore();
-  const { add: addToHistory } = useChatHistoryStore();
+  const { add: addToHistory, saveSessionMessages, getSessionMessages } = useChatHistoryStore();
 
   const [input, setInput] = useState("");
   const [activeCitations, setActiveCitations] = useState<Citation[]>([]);
@@ -448,7 +642,11 @@ export default function ChatPage() {
   const [leftOpen, setLeftOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
+  // Refs so auto-save effects always see latest values without re-subscribing
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   // Init session
   useEffect(() => {
     if (!sessionId && isAuthenticated()) {
@@ -474,6 +672,61 @@ export default function ChatPage() {
     return () => window.removeEventListener("chat:send", handler);
   }, []);
 
+  const { send, isConnected, isStreaming } = useWebSocket(sessionId ?? "", {
+    onToken: (token) => appendToLastMessage(token),
+    onCitations: (citations) => {
+      setLastMessageCitations(citations);
+      if (citations.length > 0) setActiveCitations(citations);
+    },
+    onCard: (card) => addCardToLastMessage(card),
+    onDone: () => {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      // Use getState() to read the latest Zustand state synchronously,
+      // bypassing the React render cycle (messagesRef may be stale at this point)
+      const { messages: latestMsgs } = useChatStore.getState();
+      if (latestMsgs.length < 2) return;
+      const firstUser = latestMsgs.find((m) => m.role === "user");
+      const lastAssistant = [...latestMsgs].reverse().find(
+        (m) => m.role === "assistant" && m.content.length > 0
+      );
+      if (firstUser && lastAssistant) {
+        addToHistory({
+          id: sid,
+          title: firstUser.content.slice(0, 60),
+          preview: lastAssistant.content.slice(0, 80),
+          createdAt: Date.now(),
+          pinned: false,
+        });
+        saveSessionMessages(sid, latestMsgs);
+      }
+    },
+    onToolCall: () => {},
+    onError: (err) => toast.error(err),
+  });
+
+  // Save session when navigating away from page
+  useEffect(() => {
+    return () => {
+      const sid = sessionIdRef.current;
+      const msgs = messagesRef.current;
+      if (!sid || msgs.length < 2) return;
+      const firstUser = msgs.find((m) => m.role === "user");
+      const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant" && m.content.length > 0);
+      if (firstUser && lastAssistant) {
+        addToHistory({
+          id: sid,
+          title: firstUser.content.slice(0, 60),
+          preview: lastAssistant.content.slice(0, 80),
+          createdAt: Date.now(),
+          pinned: false,
+        });
+        saveSessionMessages(sid, msgs);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Listen for batch processing completion → auto notify agent in chat
   useEffect(() => {
     const handler = (e: Event) => {
@@ -488,17 +741,25 @@ export default function ChatPage() {
     return () => window.removeEventListener("batch:processing-done", handler);
   }, [sessionId, isConnected, send, addMessage]);
 
-  const { send, isConnected, isStreaming } = useWebSocket(sessionId ?? "", {
-    onToken: (token) => appendToLastMessage(token),
-    onCitations: (citations) => {
-      setLastMessageCitations(citations);
-      if (citations.length > 0) setActiveCitations(citations);
-    },
-    onCard: (card) => addCardToLastMessage(card),
-    onDone: () => {},
-    onToolCall: () => {},
-    onError: (err) => toast.error(err),
-  });
+  const handleSelectSession = useCallback((id: string) => {
+    // Save current session first
+    if (sessionId && messages.length > 0) {
+      const firstUser = messages.find((m) => m.role === "user");
+      const firstAssistant = messages.find((m) => m.role === "assistant");
+      addToHistory({
+        id: sessionId,
+        title: firstUser?.content.slice(0, 60) ?? "Chat",
+        preview: firstAssistant?.content.slice(0, 80) ?? "",
+        createdAt: Date.now(),
+        pinned: false,
+      });
+      saveSessionMessages(sessionId, messages);
+    }
+    // Restore selected session
+    const savedMessages = getSessionMessages(id);
+    restoreSession(id, savedMessages);
+    setActiveCitations([]);
+  }, [sessionId, messages, addToHistory, saveSessionMessages, getSessionMessages, restoreSession]);
 
   const handleNewChat = useCallback(() => {
     // Save current session to history before clearing
@@ -512,6 +773,7 @@ export default function ChatPage() {
         createdAt: Date.now(),
         pinned: false,
       });
+      saveSessionMessages(sessionId, messages);
     }
     clearSession();
     setActiveCitations([]);
@@ -521,7 +783,7 @@ export default function ChatPage() {
         .then((s) => setSessionId(s.id))
         .catch(() => {});
     }
-  }, [sessionId, messages, addToHistory, clearSession, isAuthenticated, user?.id, setSessionId]);
+  }, [sessionId, messages, addToHistory, saveSessionMessages, clearSession, isAuthenticated, user?.id, setSessionId]);
 
   const handleSend = useCallback(() => {
     if (!input.trim() || isStreaming || !sessionId) return;
@@ -574,6 +836,7 @@ export default function ChatPage() {
             onClose={() => setLeftOpen(false)}
             currentSessionId={sessionId}
             onNewChat={handleNewChat}
+            onSelectSession={handleSelectSession}
           />
         </div>
       )}

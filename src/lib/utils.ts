@@ -6,6 +6,21 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Converts an absolute file URL (e.g. http://localhost:8080/files/...)
+ * to a relative path (/files/...) so it routes through the Next.js proxy.
+ * Required when the API server is not directly accessible from the browser.
+ */
+export function toProxiedUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname + parsed.search;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Formats a duration in seconds to HH:MM:SS or MM:SS format.
  * e.g. 754 → "12:34", 3754 → "1:02:34"
  */
@@ -53,6 +68,17 @@ export function highlightText(text: string, query: string): string {
     new RegExp(`(${escaped})`, "gi"),
     "<mark>$1</mark>"
   );
+}
+
+/**
+ * Converts a video file URL to a streaming proxy URL.
+ * Routes through /api/video which handles HTTP Range requests
+ * for proper video seeking and streaming.
+ */
+export function toVideoStreamUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  const path = toProxiedUrl(url); // strip host → /files/...
+  return `/api/video?url=${encodeURIComponent(path)}`;
 }
 
 /**

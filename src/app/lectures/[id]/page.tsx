@@ -1,7 +1,7 @@
 "use client";
 
+import { Suspense, useState, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
@@ -28,18 +28,15 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { formatTimestamp, formatDuration } from "@/lib/utils";
 import type { Scene } from "@/types/api";
 
-export default function LecturePlayerPage() {
-  const params = useParams<{ id: string }>();
+// Separated component so useSearchParams can be wrapped in Suspense
+function LectureContent({ lectureId }: { lectureId: string }) {
   const searchParams = useSearchParams();
-  const lectureId = params.id;
-
   const initialTimestamp = Number(searchParams.get("t") ?? 0);
 
   const { data: lecture, isLoading, error } = useQuery({
     queryKey: queryKeys.lectures.detail(lectureId),
     queryFn: () => getLecture(lectureId),
     enabled: !!lectureId,
-    // Refetch if status is not completed
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (!status || status === "COMPLETED" || status === "FAILED") return false;
@@ -58,7 +55,6 @@ export default function LecturePlayerPage() {
     [seekTo]
   );
 
-  // Find the active scene based on timestamp
   const activeScene =
     selectedScene ??
     (lecture?.scenes
@@ -89,12 +85,12 @@ export default function LecturePlayerPage() {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Failed to load lecture.
+          Không tải được bài giảng. Vui lòng kiểm tra kết nối đến server.
         </div>
         <Button asChild variant="ghost" className="mt-4">
-          <Link href="/programs">
+          <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Programs
+            Về trang chủ
           </Link>
         </Button>
       </div>
@@ -109,9 +105,9 @@ export default function LecturePlayerPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/programs">
+            <Link href="/">
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
+              Quay lại
             </Link>
           </Button>
         </div>
@@ -127,7 +123,7 @@ export default function LecturePlayerPage() {
           {lecture.scenes.length > 0 && (
             <>
               <span>&bull;</span>
-              <span>{lecture.scenes.length} scenes</span>
+              <span>{lecture.scenes.length} cảnh</span>
             </>
           )}
           {lecture.fps != null && lecture.fps > 0 && (
@@ -139,12 +135,10 @@ export default function LecturePlayerPage() {
         </div>
       </div>
 
-      {/* Processing status if not complete */}
       {isProcessing && (
         <ProcessingStatus taskId={lectureId} lectureId={lectureId} />
       )}
 
-      {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: Player + Timeline */}
         <div className="lg:col-span-3 space-y-4">
@@ -154,7 +148,6 @@ export default function LecturePlayerPage() {
             lectureId={lectureId}
           />
 
-          {/* Scene timeline */}
           {lecture.scenes.length > 0 && (
             <SceneTimeline
               scenes={lecture.scenes}
@@ -168,7 +161,6 @@ export default function LecturePlayerPage() {
         <div className="lg:col-span-2">
           {activeScene ? (
             <div className="space-y-4 rounded-lg border p-4">
-              {/* Keyframe */}
               <div className="relative aspect-video w-full overflow-hidden rounded-md bg-muted">
                 {activeScene.keyframe_url ? (
                   <Image
@@ -185,10 +177,9 @@ export default function LecturePlayerPage() {
                 )}
               </div>
 
-              {/* Scene info */}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium">
-                  Scene {activeScene.shot_index + 1}
+                  Cảnh {activeScene.shot_index + 1}
                 </span>
                 <Badge variant="outline" className="text-xs">
                   {formatTimestamp(activeScene.timestamp_start)} &ndash;{" "}
@@ -198,7 +189,6 @@ export default function LecturePlayerPage() {
 
               <Separator />
 
-              {/* Tabs for content */}
               <Tabs defaultValue="transcript">
                 <TabsList className="w-full">
                   <TabsTrigger value="transcript" className="flex-1">
@@ -220,7 +210,7 @@ export default function LecturePlayerPage() {
                       </p>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">
-                        No transcript available for this scene
+                        Không có transcript cho cảnh này
                       </p>
                     )}
                   </ScrollArea>
@@ -234,7 +224,7 @@ export default function LecturePlayerPage() {
                       </p>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">
-                        No slide text detected for this scene
+                        Không phát hiện text trên slide
                       </p>
                     )}
                   </ScrollArea>
@@ -251,7 +241,7 @@ export default function LecturePlayerPage() {
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground italic">
-                        No visual tags for this scene
+                        Không có visual tags
                       </p>
                     )}
                   </div>
@@ -262,12 +252,30 @@ export default function LecturePlayerPage() {
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
               <BookOpen className="h-10 w-10 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
-                Select a scene from the timeline to see details
+                Chọn một cảnh trong timeline để xem chi tiết
               </p>
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LecturePlayerPage() {
+  const params = useParams<{ id: string }>();
+  const lectureId = params.id;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto py-8 px-4 md:px-6 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="aspect-video w-full rounded-lg" />
+        </div>
+      }
+    >
+      <LectureContent lectureId={lectureId} />
+    </Suspense>
   );
 }

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { updateProgress, logLearningEvent } from "@/lib/api";
+import { toProxiedUrl } from "@/lib/utils";
 
 // react-player must be dynamically imported to avoid SSR issues
 const ReactPlayer = dynamic(() => import("react-player/lazy"), {
@@ -113,7 +114,7 @@ export function LecturePlayer({
       <div className="aspect-video w-full">
         <ReactPlayer
           ref={playerRef as React.Ref<unknown>}
-          url={videoUrl}
+          url={toProxiedUrl(videoUrl)}
           width="100%"
           height="100%"
           controls

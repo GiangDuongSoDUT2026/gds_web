@@ -1,14 +1,26 @@
 /** @type {import('next').NextConfig} */
+const API_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080";
+const CHATBOT_URL = process.env.CHATBOT_URL ?? "http://localhost:8002";
+
 const nextConfig = {
   async rewrites() {
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://localhost:8000/api/v1/:path*",
+        destination: `${API_URL}/api/v1/:path*`,
       },
       {
         source: "/chat/:path*",
-        destination: "http://localhost:8002/:path*",
+        destination: `${CHATBOT_URL}/:path*`,
+      },
+      // Proxy static files through Next.js so browser only needs port 3000
+      {
+        source: "/files/:path*",
+        destination: `${API_URL}/files/:path*`,
+      },
+      {
+        source: "/pipeline-output/:path*",
+        destination: `${API_URL}/pipeline-output/:path*`,
       },
     ];
   },
@@ -23,7 +35,7 @@ const nextConfig = {
       {
         protocol: "http",
         hostname: "localhost",
-        port: "8000",
+        port: "8080",
         pathname: "/**",
       },
       {
