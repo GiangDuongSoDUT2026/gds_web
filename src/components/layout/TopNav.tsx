@@ -2,7 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { GraduationCap, Home, MessageSquare } from "lucide-react";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { useNotifications } from "@/hooks/useNotifications";
+
+function NotificationWrapper() {
+  useNotifications();
+  return <NotificationBell />;
+}
 
 export function TopNav() {
   const pathname = usePathname();
@@ -45,8 +52,9 @@ export function TopNav() {
         </div>
       </div>
 
-      {/* Right: UserMenu — same fixed width as left to keep tabs centered */}
-      <div className="flex items-center justify-end w-36">
+      {/* Right: Notifications + UserMenu */}
+      <div className="flex items-center justify-end gap-1 w-36">
+        <NotificationWrapper />
         <UserMenu />
       </div>
     </header>

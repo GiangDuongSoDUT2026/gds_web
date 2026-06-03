@@ -369,10 +369,60 @@ export interface RecommendedLecture {
 
 export interface Notification {
   id: string;
-  lecture_id: string | null;
-  lecture_title: string | null;
-  event: "COMPLETED" | "FAILED";
-  message: string;
+  type: "processing_done" | "processing_failed" | "queued";
+  title: string;
+  body: string | null;
+  ref_type: "lecture" | "job" | null;
+  ref_id: string | null;
   is_read: boolean;
   created_at: string;
+}
+
+// ─── SSE Processing Stream ────────────────────────────────────────────────────
+
+export type ProcessingJobStatus =
+  | "PENDING"
+  | "QUEUED_FOR_GPU"
+  | "DISPATCHED"
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED"
+  | "NOT_FOUND";
+
+export interface ProcessingStreamEvent {
+  status: ProcessingJobStatus;
+  progress: number;   // 0-100
+  stage: string | null;
+}
+
+// ─── Admin GPU Queue ──────────────────────────────────────────────────────────
+
+export interface AdminProcessingJob {
+  id: string;
+  lecture_id: string;
+  lecture_title: string | null;
+  status: ProcessingJobStatus;
+  progress_pct: number;
+  current_stage: string | null;
+  assigned_session_id: string | null;
+  error_text: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface AdminGpuSession {
+  id: string;
+  session_type: "kaggle" | "colab" | "local";
+  status: string;
+  is_online: boolean;
+  last_heartbeat: string | null;
+  notebook_url: string | null;
+  current_job_id: string | null;
+  created_at: string;
+}
+
+export interface GpuQueueStats {
+  today: Record<string, number>;
+  gpu_sessions_online: number;
 }

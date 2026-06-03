@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronDown,
   GraduationCap,
+  Cpu,
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getPrograms, getCoursesByProgram } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useState } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
 import type { Program } from "@/types/api";
 
 interface NavItem {
@@ -84,6 +86,7 @@ interface SidebarContentProps {
 
 export function SidebarContent({ className }: SidebarContentProps) {
   const pathname = usePathname();
+  const isFacultyAdminOrAbove = useAuthStore((s) => s.isFacultyAdminOrAbove());
   const { data: programs } = useQuery({
     queryKey: queryKeys.programs.all(),
     queryFn: getPrograms,
@@ -119,6 +122,25 @@ export function SidebarContent({ className }: SidebarContentProps) {
             );
           })}
         </nav>
+
+        {isFacultyAdminOrAbove && (
+          <>
+            <Separator className="my-4" />
+            <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Admin
+            </div>
+            <Link href="/admin/gpu-queue">
+              <Button
+                variant={pathname.startsWith("/admin/gpu-queue") ? "secondary" : "ghost"}
+                className="w-full justify-start gap-2"
+                size="sm"
+              >
+                <Cpu className="h-4 w-4" />
+                GPU Queue
+              </Button>
+            </Link>
+          </>
+        )}
 
         {programs && programs.length > 0 && (
           <>
