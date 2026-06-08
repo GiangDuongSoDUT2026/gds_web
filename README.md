@@ -253,16 +253,15 @@ EOF
 
 ### Bước 3: Khởi động backend trước
 
-Backend cần chạy trước để frontend có data. Xem hướng dẫn deploy tại `gds_ai_api/README.md`.
+Backend cần chạy trước để frontend có data. Xem `gds_backend/README.md`.
 
 **Cách nhanh nhất:**
 ```bash
-cd ../gds_ai_api
-cp .env.example .env
-# Sửa .env: điền OPENAI_API_KEY
-docker compose up -d postgres rabbitmq minio minio-init falkordb db-migrate
-uv run --package api uvicorn api.main:app --port 8000 --reload &
-uv run --package chatbot uvicorn chatbot.main:app --port 8001 --reload &
+cd ../gds_backend
+docker compose up -d   # postgres + redis
+make migrate
+make api               # FastAPI :8080
+make chatbot           # Chatbot :8001
 ```
 
 ### Bước 4: Chạy frontend
@@ -280,17 +279,17 @@ Frontend cần có tài khoản để login. Tạo nhanh bằng curl:
 
 ```bash
 # Tạo SUPER_ADMIN
-curl -X POST http://localhost:8000/api/v1/auth/admin/users \
+curl -X POST http://localhost:8080/api/v1/auth/admin/users \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@gds.edu.vn","password":"Admin@123","full_name":"Admin","role":"SUPER_ADMIN"}'
 
 # Tạo STUDENT
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"sv@gds.edu.vn","password":"Test@123","full_name":"Nguyễn Văn A","role":"STUDENT","student_code":"SV001","major":"CNTT"}'
 
 # Tạo TEACHER
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"gv@gds.edu.vn","password":"Test@123","full_name":"Trần Thị B","role":"TEACHER","teacher_code":"GV001","department":"Khoa học máy tính"}'
 ```
@@ -341,12 +340,12 @@ Nếu để trống, Next.js rewrites tự proxy:
 - Mở DevTools → Network → kiểm tra `/api/v1/auth/login` trả về token đúng không
 
 **Video không play:**
-- `video_url` là presigned MinIO URL — kiểm tra `MINIO_PUBLIC_URL` trong backend `.env` trỏ đến địa chỉ truy cập được từ browser
-- Local dev: `MINIO_PUBLIC_URL=http://localhost:9000`
+- `video_url` trỏ vào Google Drive (production) hoặc local filesystem (dev)
+- Local dev: kiểm tra `STORAGE_BACKEND=local` và `STORAGE_BASE_URL=http://localhost:8080/files`
 
 **WebSocket chat không kết nối:**
-- Cần Nginx đang chạy (port 80) để proxy WebSocket
-- Hoặc sửa `useWebSocket.ts` trỏ thẳng đến `ws://localhost:8001/ws/chat/{id}?token=<jwt>` khi dev
+- Cần Nginx đang chạy để proxy WebSocket
+- Local dev: sửa `useWebSocket.ts` trỏ thẳng `ws://localhost:8001/ws/chat/{id}?token=<jwt>`
 
 **Upload bị lỗi CORS:**
 - Đảm bảo backend CORS đã cho phép `http://localhost:3000`
@@ -359,9 +358,9 @@ Nếu để trống, Next.js rewrites tự proxy:
 ### Biến môi trường trên Vercel
 
 ```env
-BACKEND_API_URL=https://your-gcp-vm-domain-or-ip
-CHATBOT_URL=https://gds-chatbot.fly.dev
-NEXT_PUBLIC_WS_BASE_URL=wss://gds-chatbot.fly.dev
+BACKEND_API_URL=https://your-domain.com
+CHATBOT_URL=https://your-domain.com
+NEXT_PUBLIC_WS_BASE_URL=wss://your-domain.com
 ```
 
 ### Cập nhật next.config.mjs cho production

@@ -41,9 +41,11 @@ src/
 | API (REST) | `http://localhost:8080` | Next.js rewrite `/api/v1/*` |
 | Chatbot | `http://localhost:8002` | Next.js rewrite `/chat/*` |
 | WebSocket | `ws://localhost:8002` | Trực tiếp (không rewrite được) |
-| Files tĩnh | `http://localhost:8080/files/{bucket}/{key}` | Trực tiếp |
 
-File buckets: `videos`, `frames`
+**Storage URLs (production — Google Drive):**
+- Video URL: trả về trực tiếp từ backend (`video_url` field trong LectureVideo)
+- Keyframe URL: trả về trực tiếp từ backend (`keyframe_url` field trong Scene / SearchResult)
+- Không tự construct URL từ bucket — luôn dùng URL backend trả về
 
 ---
 
@@ -236,6 +238,83 @@ offset?: number    // mặc định 0
   keyframe_url: string|null;
   score: number;    // relevance score (0–1 range)
 }
+```
+
+---
+
+### NOTIFICATIONS — `/api/v1/notifications`
+
+```
+GET   /notifications?unread_only=false   → Notification[]
+PATCH /notifications/{id}/read           → 204
+POST  /notifications/read-all            → 204
+```
+
+**Notification:**
+```typescript
+{
+  id: string; type: string; title: string; body: string|null;
+  ref_type: string|null; ref_id: string|null;
+  is_read: boolean; created_at: string;
+}
+```
+
+---
+
+### ADMIN — `/api/v1/admin` — FACULTY_ADMIN+
+
+```
+GET  /admin/gpu-queue?status=QUEUED_FOR_GPU   → ProcessingJob[]
+GET  /admin/gpu-sessions                       → GpuSession[]
+GET  /admin/gpu-queue/stats                    → { [status: string]: number }
+POST /admin/gpu-queue/{id}/retry               → 204
+POST /admin/gpu-queue/{id}/cancel              → 204
+```
+
+**ProcessingJob:**
+```typescript
+{
+  id: string; lecture_id: string; lecture_title: string;
+  status: "QUEUED_FOR_GPU"|"DISPATCHED"|"RUNNING"|"COMPLETED"|"FAILED"|"PENDING";
+  progress_pct: number; current_stage: string|null;
+  assigned_session_id: string|null; error_text: string|null;
+  created_at: string; started_at: string|null; completed_at: string|null;
+}
+```
+
+**GpuSession:**
+```typescript
+{
+  id: string; session_type: "kaggle"|"colab"|"local";
+  last_heartbeat: string; current_job_id: string|null;
+  notebook_url: string|null; status: "active"|"inactive";
+}
+```
+
+---
+
+### SSE PROGRESS STREAM — `/api/v1/lectures/{id}/progress-stream`
+
+```
+GET /lectures/{id}/progress-stream   → EventSource (text/event-stream)
+```
+
+Events (JSON data):
+```typescript
+{ status: string; progress: number; stage: string|null }
+```
+
+Stream tự đóng khi `status === "COMPLETED" || status === "FAILED"`.
+
+```typescript
+// Ví dụ usage:
+const es = new EventSource(`/api/v1/lectures/${id}/progress-stream`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+es.onmessage = (e) => {
+  const { status, progress, stage } = JSON.parse(e.data);
+  if (status === "COMPLETED" || status === "FAILED") es.close();
+};
 ```
 
 ---
