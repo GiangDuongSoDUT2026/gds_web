@@ -13,6 +13,7 @@ const STATUS_CONFIG: Record<
   { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }
 > = {
   PENDING: { label: "Pending", variant: "warning" },
+  QUEUED_FOR_GPU: { label: "Queued", variant: "warning" },
   DOWNLOADING: { label: "Downloading", variant: "info" },
   SCENE_DETECTING: { label: "Detecting Scenes", variant: "info" },
   ASR: { label: "Transcribing", variant: "info" },
