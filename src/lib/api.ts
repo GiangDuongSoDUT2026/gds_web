@@ -58,17 +58,83 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+let _isRefreshing = false;
+let _refreshQueue: Array<(token: string) => void> = [];
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
-    if (axios.isAxiosError(error)) {
-      const message =
-        (error.response?.data as { detail?: string })?.detail ??
-        error.message ??
-        "An unexpected error occurred";
-      return Promise.reject(new Error(message));
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) return Promise.reject(error);
+
+    const originalRequest = error.config as typeof error.config & { _retry?: boolean };
+
+    // Auto-refresh on 401, but not on login/refresh endpoints themselves
+    if (
+      error.response?.status === 401 &&
+      !originalRequest?._retry &&
+      originalRequest?.url !== "/api/v1/auth/login" &&
+      originalRequest?.url !== "/api/v1/auth/refresh"
+    ) {
+      if (_isRefreshing) {
+        // Queue request until refresh completes
+        return new Promise((resolve) => {
+          _refreshQueue.push((token) => {
+            if (originalRequest) {
+              originalRequest.headers = originalRequest.headers ?? {};
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              originalRequest._retry = true;
+              resolve(apiClient(originalRequest));
+            }
+          });
+        });
+      }
+
+      _isRefreshing = true;
+      originalRequest._retry = true;
+
+      try {
+        const stored = localStorage.getItem("gds-auth");
+        if (!stored) throw new Error("No auth stored");
+        const { state } = JSON.parse(stored) as { state: { refreshToken?: string } };
+        if (!state?.refreshToken) throw new Error("No refresh token");
+
+        const { data } = await apiClient.post<{ access_token: string; refresh_token: string }>(
+          "/api/v1/auth/refresh",
+          { refresh_token: state.refreshToken }
+        );
+
+        // Update stored tokens via Zustand store if available
+        const authRaw = localStorage.getItem("gds-auth");
+        if (authRaw) {
+          const parsed = JSON.parse(authRaw);
+          parsed.state.accessToken = data.access_token;
+          parsed.state.refreshToken = data.refresh_token;
+          localStorage.setItem("gds-auth", JSON.stringify(parsed));
+        }
+
+        _refreshQueue.forEach((cb) => cb(data.access_token));
+        _refreshQueue = [];
+
+        if (originalRequest) {
+          originalRequest.headers = originalRequest.headers ?? {};
+          originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+          return apiClient(originalRequest);
+        }
+      } catch {
+        _refreshQueue = [];
+        localStorage.removeItem("gds-auth");
+        window.location.href = "/login";
+        return Promise.reject(new Error("Session expired. Please log in again."));
+      } finally {
+        _isRefreshing = false;
+      }
     }
-    return Promise.reject(error);
+
+    const message =
+      (error.response?.data as { detail?: string })?.detail ??
+      error.message ??
+      "An unexpected error occurred";
+    return Promise.reject(new Error(message));
   }
 );
 
@@ -343,10 +409,10 @@ export async function logLearningEvent(event: {
 // ─── Pipeline Notifications ────────────────────────────────────────────────────
 
 export async function getNotifications(): Promise<Notification[]> {
-  const { data } = await apiClient.get<Notification[]>("/api/v1/pipeline/notifications");
+  const { data } = await apiClient.get<Notification[]>("/api/v1/notifications/");
   return data;
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
-  await apiClient.patch(`/api/v1/pipeline/notifications/${notificationId}/read`);
+  await apiClient.patch(`/api/v1/notifications/${notificationId}/read`);
 }

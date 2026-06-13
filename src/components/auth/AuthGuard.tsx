@@ -1,50 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { TopNav } from "@/components/layout/TopNav";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// Pages with no shell at all (standalone layouts)
-const SHELL_LESS_PATHS = ["/login", "/register"];
-
-// DEMO MODE: no auth required for any page
-const DEMO_USER = {
-  id: "00000000-0000-0000-0000-000000000001",
-  email: "demo@gds.edu.vn",
-  full_name: "Demo Teacher",
-  role: "TEACHER" as const,
-  organization_id: null,
-  faculty: null,
-  department: null,
-  teacher_code: "DEMO01",
-  major: null,
-  student_code: null,
-  is_active: true,
-};
+const PUBLIC_PATHS = ["/login", "/register"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isAuthenticated, setAuth } = useAuthStore();
+  const router = useRouter();
+  const { isAuthenticated } = useAuthStore();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // Auto-login demo user if not authenticated
   useEffect(() => {
     if (!hydrated) return;
-    if (!isAuthenticated()) {
-      setAuth(DEMO_USER, {
-        access_token: "demo-token",
-        refresh_token: "demo-refresh",
-        token_type: "bearer",
-      });
+    if (!isAuthenticated() && !PUBLIC_PATHS.includes(pathname)) {
+      router.replace(`/login?returnUrl=${encodeURIComponent(pathname)}`);
     }
-  }, [hydrated, isAuthenticated, setAuth]);
+  }, [hydrated, isAuthenticated, pathname, router]);
 
   if (!hydrated) {
     return (
@@ -54,12 +34,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Login / register: no shell
-  if (SHELL_LESS_PATHS.includes(pathname)) {
+  if (PUBLIC_PATHS.includes(pathname)) {
     return <>{children}</>;
   }
 
-  // All pages: render with shell
+  if (!isAuthenticated()) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <TopNav />
