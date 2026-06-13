@@ -44,6 +44,9 @@
     "zod": "^3.22.4",
     "zustand": "^4.5.2"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@swc/core", "sharp", "esbuild", "lightningcss"]
+  },
   "devDependencies": {
     "@types/node": "^20.12.5",
     "@types/react": "^18.3.1",
