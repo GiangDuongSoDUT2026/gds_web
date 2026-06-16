@@ -117,11 +117,11 @@ export default function DashboardPage() {
       <div className="flex flex-col items-center gap-6 py-8 text-center">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            AI Lecture Intelligence
+            Giảng Đường Số
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Search across all lecture transcripts, slides, and visual content
-            using keyword or semantic AI-powered search.
+            Tìm kiếm trong transcript, slide và nội dung hình ảnh của tất cả bài giảng
+            bằng tìm kiếm từ khóa hoặc ngữ nghĩa AI.
           </p>
         </div>
         <div className="w-full max-w-2xl">
@@ -130,8 +130,8 @@ export default function DashboardPage() {
         {/* Login CTA for guests */}
         {!isAuthenticated() && (
           <p className="text-sm text-muted-foreground">
-            <Link href="/login" className="text-primary hover:underline font-medium">Sign in</Link>
-            {" "}to access AI chat, track your progress, and get personalized recommendations.
+            <Link href="/login" className="text-primary hover:underline font-medium">Đăng nhập</Link>
+            {" "}để dùng AI Chat, theo dõi tiến độ học và nhận gợi ý cá nhân hóa.
           </p>
         )}
       </div>
@@ -185,7 +185,7 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Overview</h2>
+        <h2 className="text-xl font-semibold mb-4">Tổng quan</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {programsLoading ? (
             <>
@@ -196,16 +196,16 @@ export default function DashboardPage() {
           ) : (
             <>
               <StatsCard
-                title="Programs"
+                title="Chương trình học"
                 value={programs?.length ?? 0}
                 icon={BookOpen}
-                description="Total academic programs"
+                description="Tổng số chương trình đào tạo"
               />
               <StatsCard
-                title="Courses"
+                title="Môn học"
                 value={totalCourses}
                 icon={Video}
-                description="Courses across all programs"
+                description="Môn học trong tất cả chương trình"
               />
               <StatsCard
                 title="Videos"
@@ -228,12 +228,12 @@ export default function DashboardPage() {
       {!programsLoading && programs && programs.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Programs</h2>
+            <h2 className="text-xl font-semibold">Chương trình học</h2>
             <Link
               href="/programs"
               className="text-sm text-primary hover:underline"
             >
-              View all
+              Xem tất cả
             </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

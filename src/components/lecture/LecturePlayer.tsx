@@ -114,7 +114,7 @@ export function LecturePlayer({
       <div className="aspect-video w-full">
         <ReactPlayer
           ref={playerRef as React.Ref<unknown>}
-          url={toProxiedUrl(videoUrl)}
+          url={videoUrl.includes("drive.google.com") || videoUrl.includes("docs.google.com") ? videoUrl : toProxiedUrl(videoUrl)}
           width="100%"
           height="100%"
           controls

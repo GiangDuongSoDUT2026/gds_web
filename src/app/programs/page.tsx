@@ -40,7 +40,7 @@ import { getPrograms, createProgram } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 
 const programSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
+  name: z.string().min(1, "Tên chương trình không được để trống").max(200),
   description: z.string().max(500).optional().default(""),
 });
 
@@ -63,12 +63,12 @@ function CreateProgramDialog() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.programs.all() });
-      toast.success("Program created successfully");
+      toast.success("Đã tạo chương trình học");
       setOpen(false);
       form.reset();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to create program");
+      toast.error(err.message ?? "Không thể tạo chương trình");
     },
   });
 
@@ -77,12 +77,12 @@ function CreateProgramDialog() {
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="h-4 w-4" />
-          New Program
+          Thêm chương trình
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Program</DialogTitle>
+          <DialogTitle>Tạo chương trình học</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -94,9 +94,9 @@ function CreateProgramDialog() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Program Name</FormLabel>
+                  <FormLabel>Tên chương trình</FormLabel>
                   <FormControl>
-                    <Input placeholder="Computer Science" {...field} />
+                    <Input placeholder="Công nghệ Thông tin" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -107,10 +107,10 @@ function CreateProgramDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Mô tả</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="A brief description of the program..."
+                      placeholder="Mô tả ngắn về chương trình..."
                       {...field}
                     />
                   </FormControl>
@@ -124,13 +124,13 @@ function CreateProgramDialog() {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={mutation.isPending} className="gap-2">
                 {mutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Create
+                Tạo
               </Button>
             </DialogFooter>
           </form>
@@ -150,9 +150,9 @@ export default function ProgramsPage() {
     <div className="container mx-auto py-8 px-4 md:px-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Programs</h1>
+          <h1 className="text-2xl font-bold">Chương trình học</h1>
           <p className="text-muted-foreground">
-            Manage academic programs and their courses
+            Quản lý các chương trình học và môn học
           </p>
         </div>
         <CreateProgramDialog />
@@ -168,16 +168,16 @@ export default function ProgramsPage() {
 
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load programs. Please try again.
+          Không tải được danh sách chương trình. Vui lòng thử lại.
         </div>
       )}
 
       {programs && programs.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium">No programs yet</p>
+          <p className="text-lg font-medium">Chưa có chương trình nào</p>
           <p className="text-sm text-muted-foreground mb-4">
-            Create your first academic program to get started
+            Tạo chương trình học đầu tiên để bắt đầu
           </p>
           <CreateProgramDialog />
         </div>
@@ -206,7 +206,7 @@ export default function ProgramsPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-xs text-muted-foreground">
-                    Click to view courses
+                    Nhấn để xem các môn học
                   </p>
                 </CardContent>
               </Card>

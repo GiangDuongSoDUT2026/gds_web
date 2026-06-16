@@ -60,7 +60,7 @@ export function SearchBar({
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search lectures, transcripts, and slides..."
+            placeholder="Tìm kiếm bài giảng, transcript, slide..."
             className={cn("pl-9 pr-4", size === "hero" && "h-12 text-base")}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSubmit();

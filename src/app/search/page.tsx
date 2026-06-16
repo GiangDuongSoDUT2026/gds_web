@@ -64,9 +64,9 @@ function SearchResults() {
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Search</h1>
+        <h1 className="text-2xl font-bold">Tìm kiếm</h1>
         <p className="text-muted-foreground">
-          Search across all lecture transcripts, slides, and visual content
+          Tìm kiếm trong transcript, slide và nội dung hình ảnh của tất cả bài giảng
         </p>
       </div>
 
@@ -82,10 +82,9 @@ function SearchResults() {
       {!q && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <SearchIcon className="h-16 w-16 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium">Enter a search query</p>
+          <p className="text-lg font-medium">Nhập từ khóa để tìm kiếm</p>
           <p className="text-sm text-muted-foreground">
-            Use keyword mode for exact matches or semantic mode for
-            concept-based search
+            Tìm kiếm theo từ khóa trong transcript, slide và nội dung bài giảng
           </p>
         </div>
       )}
@@ -102,7 +101,7 @@ function SearchResults() {
       {/* Error */}
       {error && q && (
         <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Search failed. Please try again.
+          Tìm kiếm thất bại. Vui lòng thử lại.
         </div>
       )}
 
@@ -122,9 +121,9 @@ function SearchResults() {
           {data.results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <SearchIcon className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="font-medium">No results found</p>
+              <p className="font-medium">Không tìm thấy kết quả</p>
               <p className="text-sm text-muted-foreground">
-                Try different keywords or switch to semantic search
+                Thử từ khóa khác hoặc tìm kiếm ngữ nghĩa
               </p>
             </div>
           ) : (
@@ -149,10 +148,10 @@ function SearchResults() {
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page <= 1}
               >
-                Previous
+                Trước
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
+                Trang {page} / {totalPages}
               </span>
               <Button
                 variant="outline"
@@ -160,7 +159,7 @@ function SearchResults() {
                 onClick={() => handlePageChange(page + 1)}
                 disabled={page >= totalPages}
               >
-                Next
+                Sau
               </Button>
             </div>
           )}

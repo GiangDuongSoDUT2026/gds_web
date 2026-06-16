@@ -45,8 +45,8 @@ import {
 import { queryKeys } from "@/lib/queryKeys";
 
 const courseSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
-  code: z.string().min(1, "Course code is required").max(20),
+  name: z.string().min(1, "Tên môn học không được để trống").max(200),
+  code: z.string().min(1, "Mã môn học không được để trống").max(20),
   description: z.string().max(500).optional().default(""),
 });
 
@@ -72,12 +72,12 @@ function AddCourseDialog({ programId }: { programId: string }) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.courses.byProgram(programId),
       });
-      toast.success("Course created successfully");
+      toast.success("Đã tạo môn học");
       setOpen(false);
       form.reset();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to create course");
+      toast.error(err.message ?? "Không thể tạo môn học");
     },
   });
 
@@ -86,12 +86,12 @@ function AddCourseDialog({ programId }: { programId: string }) {
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Course
+          Thêm môn học
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Course</DialogTitle>
+          <DialogTitle>Thêm môn học</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -104,9 +104,9 @@ function AddCourseDialog({ programId }: { programId: string }) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Name</FormLabel>
+                    <FormLabel>Tên môn học</FormLabel>
                     <FormControl>
-                      <Input placeholder="Machine Learning" {...field} />
+                      <Input placeholder="Giải tích" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -117,9 +117,9 @@ function AddCourseDialog({ programId }: { programId: string }) {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Code</FormLabel>
+                    <FormLabel>Mã môn học</FormLabel>
                     <FormControl>
-                      <Input placeholder="CS401" {...field} />
+                      <Input placeholder="MAT101" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -131,10 +131,10 @@ function AddCourseDialog({ programId }: { programId: string }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Mô tả</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Course description..."
+                      placeholder="Mô tả môn học..."
                       {...field}
                     />
                   </FormControl>
@@ -148,13 +148,13 @@ function AddCourseDialog({ programId }: { programId: string }) {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={mutation.isPending} className="gap-2">
                 {mutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Create Course
+                Tạo môn học
               </Button>
             </DialogFooter>
           </form>
@@ -188,7 +188,7 @@ export default function ProgramDetailPage() {
         <Button asChild variant="ghost" size="sm">
           <Link href="/programs">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Programs
+            Chương trình học
           </Link>
         </Button>
       </div>
@@ -218,7 +218,7 @@ export default function ProgramDetailPage() {
       {/* Courses */}
       <div>
         <h2 className="text-lg font-semibold mb-4">
-          Courses{" "}
+          Môn học{" "}
           {courses && (
             <span className="text-muted-foreground font-normal">
               ({courses.length})
@@ -237,9 +237,9 @@ export default function ProgramDetailPage() {
         {!isLoading && courses && courses.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="font-medium">No courses yet</p>
+            <p className="font-medium">Chưa có môn học nào</p>
             <p className="text-sm text-muted-foreground">
-              Add a course to this program
+              Thêm môn học vào chương trình này
             </p>
           </div>
         )}
@@ -272,7 +272,7 @@ export default function ProgramDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs text-muted-foreground">
-                      Click to view chapters and lectures
+                      Nhấn để xem chương và bài giảng
                     </p>
                   </CardContent>
                 </Card>

@@ -46,8 +46,8 @@ import { queryKeys } from "@/lib/queryKeys";
 import { formatDuration } from "@/lib/utils";
 
 const chapterSchema = z.object({
-  title: z.string().min(1, "Title is required").max(200),
-  order_index: z.coerce.number().int().positive("Must be a positive number"),
+  title: z.string().min(1, "Tên chương không được để trống").max(200),
+  order_index: z.coerce.number().int().positive("Phải là số dương"),
 });
 
 type ChapterFormValues = z.infer<typeof chapterSchema>;
@@ -68,12 +68,12 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.chapters.byCourse(courseId),
       });
-      toast.success("Chapter created successfully");
+      toast.success("Đã tạo chương mới");
       setOpen(false);
       form.reset();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to create chapter");
+      toast.error(err.message ?? "Không thể tạo chương");
     },
   });
 
@@ -82,12 +82,12 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2" size="sm">
           <Plus className="h-4 w-4" />
-          Add Chapter
+          Thêm chương
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Chapter</DialogTitle>
+          <DialogTitle>Thêm chương</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -99,9 +99,9 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Chapter Title</FormLabel>
+                  <FormLabel>Tên chương</FormLabel>
                   <FormControl>
-                    <Input placeholder="Introduction to Neural Networks" {...field} />
+                    <Input placeholder="Chương 1: Giới thiệu" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -112,7 +112,7 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
               name="order_index"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Order</FormLabel>
+                  <FormLabel>Thứ tự</FormLabel>
                   <FormControl>
                     <Input type="number" min={1} {...field} />
                   </FormControl>
@@ -126,13 +126,13 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={mutation.isPending} className="gap-2">
                 {mutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Create Chapter
+                Tạo chương
               </Button>
             </DialogFooter>
           </form>
@@ -161,9 +161,9 @@ function ChapterLectures({ chapterId }: { chapterId: string }) {
   if (!lectures || lectures.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-2">
-        No lectures in this chapter.{" "}
+        Chưa có bài giảng nào trong chương này.{" "}
         <Link href="/upload" className="text-primary hover:underline">
-          Upload one
+          Tải lên ngay
         </Link>
       </p>
     );
@@ -184,7 +184,7 @@ function ChapterLectures({ chapterId }: { chapterId: string }) {
               {lecture.duration_sec != null && lecture.duration_sec > 0 && (
                 <p className="text-xs text-muted-foreground">
                   {formatDuration(lecture.duration_sec)} &bull;{" "}
-                  {lecture.scenes.length} scenes
+                  {lecture.scenes.length} cảnh
                 </p>
               )}
             </div>
@@ -218,16 +218,16 @@ export default function CourseDetailPage() {
         <Button asChild variant="ghost" size="sm">
           <Link href="/programs">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Programs
+            Chương trình học
           </Link>
         </Button>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Course Content</h1>
+          <h1 className="text-2xl font-bold">Nội dung môn học</h1>
           <p className="text-muted-foreground">
-            {chapters ? `${chapters.length} chapters` : "Loading..."}
+            {chapters ? `${chapters.length} chương` : "Đang tải..."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -235,7 +235,7 @@ export default function CourseDetailPage() {
           <Button asChild size="sm" className="gap-2">
             <Link href="/upload">
               <Plus className="h-4 w-4" />
-              Upload Lecture
+              Tải lên bài giảng
             </Link>
           </Button>
         </div>
@@ -251,15 +251,15 @@ export default function CourseDetailPage() {
 
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load chapters.
+          Không tải được danh sách chương. Vui lòng thử lại.
         </div>
       )}
 
       {!isLoading && sortedChapters.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-          <p className="font-medium">No chapters yet</p>
+          <p className="font-medium">Chưa có chương nào</p>
           <p className="text-sm text-muted-foreground">
-            Add a chapter to organize your lectures
+            Thêm chương để tổ chức bài giảng
           </p>
         </div>
       )}
