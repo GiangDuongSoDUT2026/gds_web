@@ -45,7 +45,7 @@
     "zustand": "^4.5.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@swc/core", "sharp", "esbuild", "lightningcss"]
+    "onlyBuiltDependencies": ["@swc/core", "sharp", "esbuild", "lightningcss", "unrs-resolver"]
   },
   "devDependencies": {
     "@types/node": "^20.12.5",

@@ -6,12 +6,10 @@ import Link from "next/link";
 import {
   BookOpen,
   Video,
-  Search,
-  Upload,
-  MessageSquare,
-  Activity,
   Play,
   Sparkles,
+  Clapperboard,
+  MousePointerClick,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/SearchBar";
 import {
@@ -22,13 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { RecommendationCard } from "@/components/recommendations/RecommendationCard";
-import { getPrograms, getHealth, getRecommendations, getMyProgress } from "@/lib/api";
+import { getPrograms, getCoursesByProgram, getGpuQueueStats, getLearningStats, getRecommendations, getMyProgress } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import { formatDuration } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { SearchMode } from "@/types/api";
 
@@ -63,19 +58,35 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
 
-  const { data: programs, isLoading: programsLoading, isError: programsError } = useQuery({
+  const { data: programs, isLoading: programsLoading } = useQuery({
     queryKey: queryKeys.programs.all(),
     queryFn: getPrograms,
     retry: 1,
   });
 
-  const { data: health, isError: healthError } = useQuery({
-    queryKey: ["health"],
-    queryFn: getHealth,
-    retry: false,
+  const { data: totalCourses = 0 } = useQuery({
+    queryKey: ["total-courses"],
+    queryFn: async () => {
+      const progs = await getPrograms();
+      const results = await Promise.all(progs.map((p) => getCoursesByProgram(p.id)));
+      return results.reduce((sum, courses) => sum + courses.length, 0);
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!programs,
   });
 
-  const backendDown = healthError && programsError;
+  const { data: gpuStats } = useQuery({
+    queryKey: ["gpu-queue-stats"],
+    queryFn: getGpuQueueStats,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: learningStats } = useQuery({
+    queryKey: ["learning-stats"],
+    queryFn: getLearningStats,
+    enabled: isAuthenticated(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: recommendations = [] } = useQuery({
     queryKey: ["recommendations"],
@@ -91,29 +102,17 @@ export default function DashboardPage() {
     select: (data) => data.filter((p) => !p.completed && p.percent > 0).slice(0, 4),
   });
 
-  const handleSearch = (
-    query: string,
-    mode: SearchMode,
-    courseId?: string
-  ) => {
+  const handleSearch = (query: string, mode: SearchMode) => {
     const params = new URLSearchParams({ q: query, mode });
-    if (courseId) params.set("course_id", courseId);
     router.push(`/search?${params.toString()}`);
   };
 
-  const totalCourses =
-    programs?.reduce((acc) => acc + 1, 0) ?? 0;
+  const processingCount = (gpuStats?.today?.QUEUED_FOR_GPU ?? 0) + (gpuStats?.today?.RUNNING ?? 0);
+  const failedCount = gpuStats?.today?.FAILED ?? 0;
+  const totalInteractions = (learningStats?.total_scenes_viewed ?? 0) + (learningStats?.completed_lectures ?? 0);
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 space-y-8">
-      {/* Backend down banner */}
-      {backendDown && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center gap-2">
-          <Activity className="h-4 w-4 shrink-0" />
-          <span>Backend is not available. Some features may not work. Please try again later.</span>
-        </div>
-      )}
-
       {/* Hero search */}
       <div className="flex flex-col items-center gap-6 py-8 text-center">
         <div className="space-y-2">
@@ -184,62 +183,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Quick actions */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/programs">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader className="pb-2">
-              <BookOpen className="h-8 w-8 text-primary mb-2" />
-              <CardTitle className="text-base">Browse Programs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Explore courses, chapters, and lectures
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/search">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader className="pb-2">
-              <Search className="h-8 w-8 text-blue-500 mb-2" />
-              <CardTitle className="text-base">Search Lectures</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Keyword and semantic search across all content
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/upload">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader className="pb-2">
-              <Upload className="h-8 w-8 text-green-500 mb-2" />
-              <CardTitle className="text-base">Upload Lecture</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Add a new video lecture to a course
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/chat">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader className="pb-2">
-              <MessageSquare className="h-8 w-8 text-purple-500 mb-2" />
-              <CardTitle className="text-base">AI Chat</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Ask questions about lecture content with AI
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
       {/* Stats */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Overview</h2>
@@ -265,16 +208,16 @@ export default function DashboardPage() {
                 description="Courses across all programs"
               />
               <StatsCard
-                title="System Status"
-                value={health ? "Online" : "Offline"}
-                icon={Activity}
-                description="API connectivity"
+                title="Videos"
+                value={processingCount > 0 ? `${processingCount} đang xử lý` : failedCount > 0 ? `${failedCount} cần xử lý lại` : "Tất cả đã xong"}
+                icon={Clapperboard}
+                description={failedCount > 0 ? `${failedCount} video thất bại cần retry` : "Không có video bị lỗi"}
               />
               <StatsCard
-                title="Search"
-                value="Ready"
-                icon={Search}
-                description="Keyword + semantic search"
+                title="Hoạt động"
+                value={totalInteractions}
+                icon={MousePointerClick}
+                description={`${learningStats?.total_scenes_viewed ?? 0} scenes xem • ${learningStats?.completed_lectures ?? 0} bài hoàn thành`}
               />
             </>
           )}

@@ -45,9 +45,8 @@ function SearchResults() {
   });
 
   const handleSearch = useCallback(
-    (newQuery: string, newMode: SearchMode, newCourseId?: string) => {
-      const next = new URLSearchParams({ q: newQuery, mode: newMode });
-      if (newCourseId) next.set("course_id", newCourseId);
+    (newQuery: string, _mode: SearchMode) => {
+      const next = new URLSearchParams({ q: newQuery, mode: "keyword" });
       next.set("page", "1");
       router.push(`/search?${next.toString()}`);
     },
