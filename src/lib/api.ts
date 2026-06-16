@@ -31,7 +31,7 @@ import type {
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "",
+  baseURL: "",
   headers: {
     "Content-Type": "application/json",
   },
