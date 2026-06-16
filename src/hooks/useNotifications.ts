@@ -16,7 +16,7 @@ export function useNotifications() {
   async function fetchNotifications() {
     try {
       const res = await apiClient.get<Notification[]>(
-        "/api/v1/notifications/?unread_only=false&limit=20"
+        "/api/v1/notifications?unread_only=false&limit=20"
       );
       setNotifications(res.data);
     } catch {

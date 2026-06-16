@@ -220,7 +220,7 @@ export async function getLecturesByChapter(
   chapterId: string
 ): Promise<LectureVideo[]> {
   const { data } = await apiClient.get<LectureVideo[]>(
-    `/api/v1/lectures/?chapter_id=${chapterId}`
+    `/api/v1/lectures?chapter_id=${chapterId}`
   );
   return data;
 }
@@ -329,7 +329,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
 }
 
 export async function getOrganizations(): Promise<Organization[]> {
-  const { data } = await apiClient.get<Organization[]>("/api/v1/organizations/");
+  const { data } = await apiClient.get<Organization[]>("/api/v1/organizations");
   return data;
 }
 
@@ -395,7 +395,7 @@ export async function updateProgress(lectureId: string, data: ProgressUpdate): P
 }
 
 export async function getMyProgress(): Promise<LectureProgress[]> {
-  const { data } = await apiClient.get<LectureProgress[]>("/api/v1/progress/");
+  const { data } = await apiClient.get<LectureProgress[]>("/api/v1/progress");
   return data;
 }
 
@@ -421,7 +421,7 @@ export async function logLearningEvent(event: {
 // ─── Pipeline Notifications ────────────────────────────────────────────────────
 
 export async function getNotifications(): Promise<Notification[]> {
-  const { data } = await apiClient.get<Notification[]>("/api/v1/notifications/");
+  const { data } = await apiClient.get<Notification[]>("/api/v1/notifications");
   return data;
 }
 
