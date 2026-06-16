@@ -38,6 +38,11 @@ export const apiClient = axios.create({
   timeout: 30_000,
 });
 
+// Diagnostic: log baseURL on client so we can verify the right bundle is loaded
+if (typeof window !== "undefined") {
+  console.log("[api] baseURL:", apiClient.defaults.baseURL ?? "(empty = relative)");
+}
+
 // ─── Auth token interceptor ───────────────────────────────────────────────────
 
 apiClient.interceptors.request.use((config) => {
