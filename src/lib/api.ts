@@ -274,7 +274,7 @@ export async function search(params: SearchParams): Promise<SearchResponse> {
     searchParams.set("offset", String(params.offset));
 
   const { data } = await apiClient.get<SearchResponse>(
-    `/api/v1/search/?${searchParams.toString()}`
+    `/api/v1/search?${searchParams.toString()}`
   );
   return data;
 }

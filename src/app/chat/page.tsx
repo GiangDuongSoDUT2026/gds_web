@@ -252,7 +252,7 @@ function TeacherContextPanel() {
   const { data: lectures, isLoading } = useQuery({
     queryKey: ["recent-lectures-context"],
     queryFn: async () => {
-      const { data } = await apiClient.get("/api/v1/lectures/?limit=5");
+      const { data } = await apiClient.get("/api/v1/lectures?limit=5");
       return data as { id: string; title: string; status: string }[];
     },
     staleTime: 10 * 1000,
