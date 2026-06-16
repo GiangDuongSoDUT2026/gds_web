@@ -31,14 +31,19 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
-      setAuth: (user, tokens) =>
+      setAuth: (user, tokens) => {
+        document.cookie = `access_token=${tokens.access_token}; path=/; max-age=86400; SameSite=Lax`;
         set({
           user,
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
-        }),
+        });
+      },
       setUser: (user) => set({ user }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null }),
+      logout: () => {
+        document.cookie = "access_token=; path=/; max-age=0";
+        set({ user: null, accessToken: null, refreshToken: null });
+      },
       isAuthenticated: () => !!get().accessToken && !!get().user,
       hasRole: (...roles) => {
         const user = get().user;
