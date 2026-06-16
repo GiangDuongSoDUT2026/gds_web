@@ -105,7 +105,11 @@ function LectureContent({ lectureId }: { lectureId: string }) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/">
+            <Link href={
+              lecture.chapter_id
+                ? `/courses/${searchParams.get("courseId") ?? ""}/chapters/${lecture.chapter_id}`
+                : "/"
+            }>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Quay lại
             </Link>

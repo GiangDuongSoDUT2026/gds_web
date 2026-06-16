@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, BookOpen, ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, BookOpen, ChevronRight, ArrowLeft, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,8 +41,12 @@ import {
   getProgram,
   getCoursesByProgram,
   createCourse,
+  updateCourse,
+  deleteCourse,
 } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import { useAuthStore } from "@/store/useAuthStore";
+import type { Course } from "@/types/api";
 
 const courseSchema = z.object({
   name: z.string().min(1, "Tên môn học không được để trống").max(200),
@@ -164,9 +168,63 @@ function AddCourseDialog({ programId }: { programId: string }) {
   );
 }
 
+function EditCourseDialog({ course, programId, onClose }: { course: Course; programId: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm<CourseFormValues>({
+    resolver: zodResolver(courseSchema),
+    defaultValues: { name: course.name, code: course.code ?? "", description: course.description ?? "" },
+  });
+  const mutation = useMutation({
+    mutationFn: (values: CourseFormValues) => updateCourse(course.id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.byProgram(programId) });
+      toast.success("Đã cập nhật môn học");
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể cập nhật"),
+  });
+  return (
+    <DialogContent>
+      <DialogHeader><DialogTitle>Chỉnh sửa môn học</DialogTitle></DialogHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem><FormLabel>Tên môn học</FormLabel>
+                <FormControl><Input {...field} /></FormControl><FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="code" render={({ field }) => (
+              <FormItem><FormLabel>Mã môn học</FormLabel>
+                <FormControl><Input {...field} /></FormControl><FormMessage />
+              </FormItem>
+            )} />
+          </div>
+          <FormField control={form.control} name="description" render={({ field }) => (
+            <FormItem><FormLabel>Mô tả</FormLabel>
+              <FormControl><Textarea {...field} /></FormControl><FormMessage />
+            </FormItem>
+          )} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
+            <Button type="submit" disabled={mutation.isPending} className="gap-2">
+              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    </DialogContent>
+  );
+}
+
 export default function ProgramDetailPage() {
   const params = useParams<{ id: string }>();
   const programId = params.id;
+  const [editCourse, setEditCourse] = useState<Course | null>(null);
+  const { isFacultyAdminOrAbove } = useAuthStore();
+  const canManage = isFacultyAdminOrAbove();
+  const queryClient = useQueryClient();
 
   const { data: program, isLoading: programLoading } = useQuery({
     queryKey: queryKeys.programs.detail(programId),
@@ -178,6 +236,15 @@ export default function ProgramDetailPage() {
     queryKey: queryKeys.courses.byProgram(programId),
     queryFn: () => getCoursesByProgram(programId),
     enabled: !!programId,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses.byProgram(programId) });
+      toast.success("Đã xóa môn học");
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể xóa"),
   });
 
   const isLoading = programLoading || coursesLoading;
@@ -247,40 +314,60 @@ export default function ProgramDetailPage() {
         {courses && courses.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
-              <Link key={course.id} href={`/courses/${course.id}`}>
-                <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
-                  <CardHeader>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <BookOpen className="h-4 w-4 text-primary shrink-0" />
-                        <div className="min-w-0">
-                          <CardTitle className="text-sm line-clamp-1">
-                            {course.name}
-                          </CardTitle>
-                          <p className="text-xs text-muted-foreground">
-                            {course.code}
-                          </p>
+              <div key={course.id} className="relative group">
+                <Link href={`/courses/${course.id}`}>
+                  <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
+                    <CardHeader>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <BookOpen className="h-4 w-4 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <CardTitle className="text-sm line-clamp-1">
+                              {course.name}
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              {course.code}
+                            </p>
+                          </div>
                         </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                    {course.description && (
-                      <CardDescription className="line-clamp-2 text-xs">
-                        {course.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xs text-muted-foreground">
-                      Nhấn để xem chương và bài giảng
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
+                      {course.description && (
+                        <CardDescription className="line-clamp-2 text-xs">
+                          {course.description}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-muted-foreground">
+                        Nhấn để xem chương và bài giảng
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
+                {canManage && (
+                  <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                      onClick={(e) => { e.preventDefault(); setEditCourse(course); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={(e) => { e.preventDefault(); if (confirm(`Xóa "${course.name}"?`)) deleteMutation.mutate(course.id); }}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={!!editCourse} onOpenChange={(o) => !o && setEditCourse(null)}>
+        {editCourse && <EditCourseDialog course={editCourse} programId={programId} onClose={() => setEditCourse(null)} />}
+      </Dialog>
     </div>
   );
 }

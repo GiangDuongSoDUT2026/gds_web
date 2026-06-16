@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Video, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Video, ArrowLeft, Loader2, RefreshCw, ChevronRight, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,9 +41,14 @@ import {
   getChaptersByCourse,
   getLecturesByChapter,
   createChapter,
+  reprocessLecture,
+  updateChapter,
+  deleteChapter,
 } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatDuration } from "@/lib/utils";
+import { useAuthStore } from "@/store/useAuthStore";
+import type { Chapter } from "@/types/api";
 
 const chapterSchema = z.object({
   title: z.string().min(1, "Tên chương không được để trống").max(200),
@@ -142,17 +147,80 @@ function AddChapterDialog({ courseId }: { courseId: string }) {
   );
 }
 
-function ChapterLectures({ chapterId }: { chapterId: string }) {
+function EditChapterDialog({ chapter, courseId, onClose }: { chapter: Chapter; courseId: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm<ChapterFormValues>({
+    resolver: zodResolver(chapterSchema),
+    defaultValues: { title: chapter.title, order_index: chapter.order_index },
+  });
+  const mutation = useMutation({
+    mutationFn: (values: ChapterFormValues) => updateChapter(chapter.id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chapters.byCourse(courseId) });
+      toast.success("Đã cập nhật chương");
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể cập nhật"),
+  });
+  return (
+    <DialogContent>
+      <DialogHeader><DialogTitle>Chỉnh sửa chương</DialogTitle></DialogHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+          <FormField control={form.control} name="title" render={({ field }) => (
+            <FormItem><FormLabel>Tên chương</FormLabel>
+              <FormControl><Input {...field} /></FormControl><FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="order_index" render={({ field }) => (
+            <FormItem><FormLabel>Thứ tự</FormLabel>
+              <FormControl><Input type="number" min={1} {...field} /></FormControl><FormMessage />
+            </FormItem>
+          )} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
+            <Button type="submit" disabled={mutation.isPending} className="gap-2">
+              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    </DialogContent>
+  );
+}
+
+const PAGE_SIZE = 10;
+
+function ChapterLectures({
+  chapterId,
+  courseId,
+}: {
+  chapterId: string;
+  courseId: string;
+}) {
+  const [page, setPage] = useState(0);
+  const queryClient = useQueryClient();
+
   const { data: lectures, isLoading } = useQuery({
     queryKey: queryKeys.lectures.byChapter(chapterId),
     queryFn: () => getLecturesByChapter(chapterId),
   });
 
+  const reprocessMutation = useMutation({
+    mutationFn: reprocessLecture,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.lectures.byChapter(chapterId) });
+      toast.success("Đã gửi yêu cầu xử lý lại");
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể reprocess"),
+  });
+
   if (isLoading) {
     return (
-      <div className="space-y-2">
+      <div className="flex gap-3 overflow-hidden">
         {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <Skeleton key={i} className="h-24 w-48 shrink-0 rounded-lg" />
         ))}
       </div>
     );
@@ -169,31 +237,82 @@ function ChapterLectures({ chapterId }: { chapterId: string }) {
     );
   }
 
+  const totalPages = Math.ceil(lectures.length / PAGE_SIZE);
+  const pageLectures = lectures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
-    <div className="space-y-2">
-      {lectures.map((lecture) => (
-        <Link
-          key={lecture.id}
-          href={`/lectures/${lecture.id}`}
-          className="flex items-center justify-between gap-3 rounded-md border p-3 hover:bg-accent transition-colors"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <Video className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium line-clamp-1">{lecture.title}</p>
-              {lecture.duration_sec != null && lecture.duration_sec > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {formatDuration(lecture.duration_sec)} &bull;{" "}
-                  {lecture.scenes.length} cảnh
-                </p>
-              )}
+    <div className="space-y-3">
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {pageLectures.map((lecture) => {
+          const needsReprocess = lecture.status === "FAILED" || lecture.status === "PENDING";
+          return (
+            <div
+              key={lecture.id}
+              className="shrink-0 w-52 rounded-lg border bg-card p-3 flex flex-col gap-2"
+            >
+              <Link href={`/lectures/${lecture.id}?courseId=${courseId}`} className="flex-1 min-w-0 hover:text-primary transition-colors">
+                <div className="flex items-start gap-2">
+                  <Video className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium line-clamp-2 leading-snug">{lecture.title}</p>
+                </div>
+                {lecture.duration_sec != null && lecture.duration_sec > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1 ml-6">
+                    {formatDuration(lecture.duration_sec)}
+                  </p>
+                )}
+              </Link>
+              <div className="flex items-center justify-between gap-1">
+                <StatusBadge status={lecture.status} />
+                {needsReprocess && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs gap-1"
+                    disabled={reprocessMutation.isPending}
+                    onClick={() => reprocessMutation.mutate(lecture.id)}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Xử lý lại
+                  </Button>
+                )}
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between">
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              ‹
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {page + 1} / {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              ›
+            </Button>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusBadge status={lecture.status} />
-          </div>
+        )}
+        <Link
+          href={`/courses/${courseId}/chapters/${chapterId}`}
+          className="ml-auto flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          Xem tất cả {lectures.length} video
+          <ChevronRight className="h-4 w-4" />
         </Link>
-      ))}
+      </div>
     </div>
   );
 }
@@ -201,11 +320,24 @@ function ChapterLectures({ chapterId }: { chapterId: string }) {
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = params.id;
+  const [editChapter, setEditChapter] = useState<Chapter | null>(null);
+  const { isTeacherOrAbove } = useAuthStore();
+  const canManage = isTeacherOrAbove();
+  const queryClient = useQueryClient();
 
   const { data: chapters, isLoading, error } = useQuery({
     queryKey: queryKeys.chapters.byCourse(courseId),
     queryFn: () => getChaptersByCourse(courseId),
     enabled: !!courseId,
+  });
+
+  const deleteChapterMutation = useMutation({
+    mutationFn: deleteChapter,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chapters.byCourse(courseId) });
+      toast.success("Đã xóa chương");
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể xóa"),
   });
 
   const sortedChapters = chapters
@@ -269,20 +401,38 @@ export default function CourseDetailPage() {
           {sortedChapters.map((chapter) => (
             <AccordionItem key={chapter.id} value={chapter.id}>
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-3 text-left">
+                <div className="flex items-center gap-3 text-left flex-1 min-w-0">
                   <Badge variant="secondary" className="shrink-0">
                     {chapter.order_index}
                   </Badge>
-                  <span className="font-medium">{chapter.title}</span>
+                  <span className="font-medium flex-1 min-w-0 truncate">{chapter.title}</span>
+                  {canManage && (
+                    <div className="flex gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7"
+                        onClick={() => setEditChapter(chapter)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        disabled={deleteChapterMutation.isPending}
+                        onClick={() => { if (confirm(`Xóa chương "${chapter.title}"?`)) deleteChapterMutation.mutate(chapter.id); }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <ChapterLectures chapterId={chapter.id} />
+                <ChapterLectures chapterId={chapter.id} courseId={courseId} />
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
       )}
+
+      <Dialog open={!!editChapter} onOpenChange={(o) => !o && setEditChapter(null)}>
+        {editChapter && <EditChapterDialog chapter={editChapter} courseId={courseId} onClose={() => setEditChapter(null)} />}
+      </Dialog>
     </div>
   );
 }

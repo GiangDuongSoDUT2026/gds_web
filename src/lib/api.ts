@@ -428,3 +428,47 @@ export async function getNotifications(): Promise<Notification[]> {
 export async function markNotificationRead(notificationId: string): Promise<void> {
   await apiClient.patch(`/api/v1/notifications/${notificationId}/read`);
 }
+
+// ─── Reprocess ────────────────────────────────────────────────────────────────
+
+export async function reprocessLecture(lectureId: string): Promise<void> {
+  await apiClient.post(`/api/v1/lectures/${lectureId}/reprocess`);
+}
+
+// ─── Edit / Delete ────────────────────────────────────────────────────────────
+
+export async function updateProgram(id: string, input: { name?: string; description?: string }): Promise<Program> {
+  const { data } = await apiClient.patch<Program>(`/api/v1/programs/${id}`, input);
+  return data;
+}
+
+export async function deleteProgram(id: string): Promise<void> {
+  await apiClient.delete(`/api/v1/programs/${id}`);
+}
+
+export async function updateCourse(id: string, input: { name?: string; code?: string; description?: string }): Promise<Course> {
+  const { data } = await apiClient.patch<Course>(`/api/v1/courses/${id}`, input);
+  return data;
+}
+
+export async function deleteCourse(id: string): Promise<void> {
+  await apiClient.delete(`/api/v1/courses/${id}`);
+}
+
+export async function updateChapter(id: string, input: { title?: string; order_index?: number }): Promise<Chapter> {
+  const { data } = await apiClient.patch<Chapter>(`/api/v1/chapters/${id}`, input);
+  return data;
+}
+
+export async function deleteChapter(id: string): Promise<void> {
+  await apiClient.delete(`/api/v1/chapters/${id}`);
+}
+
+export async function updateLecture(id: string, input: { title: string }): Promise<LectureVideo> {
+  const { data } = await apiClient.patch<LectureVideo>(`/api/v1/lectures/${id}`, input);
+  return data;
+}
+
+export async function deleteLecture(id: string): Promise<void> {
+  await apiClient.delete(`/api/v1/lectures/${id}`);
+}

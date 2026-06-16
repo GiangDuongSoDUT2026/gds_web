@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, BookOpen, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, BookOpen, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,8 +36,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getPrograms, createProgram } from "@/lib/api";
+import { getPrograms, createProgram, updateProgram, deleteProgram } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import { useAuthStore } from "@/store/useAuthStore";
+import type { Program } from "@/types/api";
 
 const programSchema = z.object({
   name: z.string().min(1, "Tên chương trình không được để trống").max(200),
@@ -140,10 +142,67 @@ function CreateProgramDialog() {
   );
 }
 
+function EditProgramDialog({ program, onClose }: { program: Program; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const form = useForm<ProgramFormValues>({
+    resolver: zodResolver(programSchema),
+    defaultValues: { name: program.name, description: program.description ?? "" },
+  });
+  const mutation = useMutation({
+    mutationFn: (values: ProgramFormValues) => updateProgram(program.id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programs.all() });
+      toast.success("Đã cập nhật chương trình");
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể cập nhật"),
+  });
+  return (
+    <DialogContent>
+      <DialogHeader><DialogTitle>Chỉnh sửa chương trình</DialogTitle></DialogHeader>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+          <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem><FormLabel>Tên chương trình</FormLabel>
+              <FormControl><Input {...field} /></FormControl><FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="description" render={({ field }) => (
+            <FormItem><FormLabel>Mô tả</FormLabel>
+              <FormControl><Textarea {...field} /></FormControl><FormMessage />
+            </FormItem>
+          )} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Hủy</Button>
+            <Button type="submit" disabled={mutation.isPending} className="gap-2">
+              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    </DialogContent>
+  );
+}
+
 export default function ProgramsPage() {
+  const [editProgram, setEditProgram] = useState<Program | null>(null);
+  const { isSchoolAdminOrAbove } = useAuthStore();
+  const canManage = isSchoolAdminOrAbove();
+  const queryClient = useQueryClient();
+
   const { data: programs, isLoading, error } = useQuery({
     queryKey: queryKeys.programs.all(),
     queryFn: getPrograms,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteProgram,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programs.all() });
+      toast.success("Đã xóa chương trình");
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Không thể xóa"),
   });
 
   return (
@@ -186,34 +245,56 @@ export default function ProgramsPage() {
       {programs && programs.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {programs.map((program) => (
-            <Link key={program.id} href={`/programs/${program.id}`}>
-              <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-primary shrink-0" />
-                      <CardTitle className="text-base line-clamp-1">
-                        {program.name}
-                      </CardTitle>
+            <div key={program.id} className="relative group">
+              <Link href={`/programs/${program.id}`}>
+                <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-primary shrink-0" />
+                        <CardTitle className="text-base line-clamp-1">
+                          {program.name}
+                        </CardTitle>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform" />
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                  {program.description && (
-                    <CardDescription className="line-clamp-2">
-                      {program.description}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    Nhấn để xem các môn học
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
+                    {program.description && (
+                      <CardDescription className="line-clamp-2">
+                        {program.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      Nhấn để xem các môn học
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+              {canManage && (
+                <div className="absolute top-2 right-8 hidden group-hover:flex gap-1">
+                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                    onClick={(e) => { e.preventDefault(); setEditProgram(program); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon" variant="ghost"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    disabled={deleteMutation.isPending}
+                    onClick={(e) => { e.preventDefault(); if (confirm(`Xóa "${program.name}"?`)) deleteMutation.mutate(program.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
+
+      <Dialog open={!!editProgram} onOpenChange={(o) => !o && setEditProgram(null)}>
+        {editProgram && <EditProgramDialog program={editProgram} onClose={() => setEditProgram(null)} />}
+      </Dialog>
     </div>
   );
 }
