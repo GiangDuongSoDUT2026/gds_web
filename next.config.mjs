@@ -22,10 +22,15 @@ const nextConfig = {
         source: "/pipeline-output/:path*",
         destination: `${API_URL}/pipeline-output/:path*`,
       },
+      {
+        source: "/health",
+        destination: `${API_URL}/health`,
+      },
     ];
   },
   images: {
     remotePatterns: [
+      // Local dev
       {
         protocol: "http",
         hostname: "localhost",
@@ -48,6 +53,23 @@ const nextConfig = {
         protocol: "http",
         hostname: "localhost",
         port: "9000",
+        pathname: "/**",
+      },
+      // Production — Google Drive keyframes
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "drive.google.com",
+        pathname: "/**",
+      },
+      // Production — backend VM (keyframes served via /files/*)
+      {
+        protocol: "https",
+        hostname: process.env.NEXT_PUBLIC_API_HOSTNAME ?? "localhost",
         pathname: "/**",
       },
     ],

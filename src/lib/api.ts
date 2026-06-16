@@ -141,7 +141,14 @@ apiClient.interceptors.response.use(
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export async function getHealth(): Promise<{ status: string }> {
-  const { data } = await apiClient.get<{ status: string }>("/api/v1/health");
+  const { data } = await apiClient.get<{ status: string }>("/health");
+  return data;
+}
+
+// ─── Admin GPU Queue Stats ────────────────────────────────────────────────────
+
+export async function getGpuQueueStats(): Promise<{ today: Record<string, number>; gpu_sessions_online: number }> {
+  const { data } = await apiClient.get("/api/v1/admin/gpu-queue/stats");
   return data;
 }
 
