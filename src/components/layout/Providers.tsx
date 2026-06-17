@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { BatchPollProvider } from "@/components/providers/BatchPollProvider";
+import { UploadProgressPanel } from "@/components/upload/UploadProgressPanel";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ export function Providers({ children }: ProvidersProps) {
         {children}
       </BatchPollProvider>
       <Toaster richColors position="top-right" />
+      <UploadProgressPanel />
       {process.env.NODE_ENV === "development" && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}

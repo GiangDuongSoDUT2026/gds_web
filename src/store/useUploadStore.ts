@@ -20,16 +20,29 @@ export interface UploadBatch {
   notified: boolean;
 }
 
+export interface ActiveUpload {
+  id: string;
+  filename: string;
+  progress: number;
+  status: "uploading" | "done" | "error";
+  error?: string;
+}
+
 interface UploadStore {
   batches: Record<string, UploadBatch>;
+  activeUploads: Record<string, ActiveUpload>;
   addBatch: (batch: Omit<UploadBatch, "notified">) => void;
   updateBatch: (batch_id: string, data: Partial<UploadBatch>) => void;
   markNotified: (batch_id: string) => void;
   activeBatches: () => UploadBatch[];
+  addActiveUpload: (upload: ActiveUpload) => void;
+  updateActiveUpload: (id: string, data: Partial<ActiveUpload>) => void;
+  removeActiveUpload: (id: string) => void;
 }
 
 export const useUploadStore = create<UploadStore>((set, get) => ({
   batches: {},
+  activeUploads: {},
   addBatch: (batch) =>
     set((s) => ({ batches: { ...s.batches, [batch.batch_id]: { ...batch, notified: false } } })),
   updateBatch: (batch_id, data) =>
@@ -47,4 +60,15 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
       },
     })),
   activeBatches: () => Object.values(get().batches).filter((b) => !b.is_done || !b.notified),
+  addActiveUpload: (upload) =>
+    set((s) => ({ activeUploads: { ...s.activeUploads, [upload.id]: upload } })),
+  updateActiveUpload: (id, data) =>
+    set((s) => ({
+      activeUploads: { ...s.activeUploads, [id]: { ...s.activeUploads[id], ...data } },
+    })),
+  removeActiveUpload: (id) =>
+    set((s) => {
+      const { [id]: _, ...rest } = s.activeUploads;
+      return { activeUploads: rest };
+    }),
 }));

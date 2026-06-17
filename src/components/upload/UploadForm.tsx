@@ -11,7 +11,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import {
   Form,
   FormControl,
@@ -48,6 +47,7 @@ import {
   createChapter,
 } from "@/lib/api";
 import { useUploadStore } from "@/store/useUploadStore";
+import { nanoid } from "nanoid";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
 
@@ -67,8 +67,6 @@ type CreateDialog = "program" | "course" | "chapter" | null;
 
 export function UploadForm() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
     taskId: string;
     lectureId: string;
@@ -80,7 +78,7 @@ export function UploadForm() {
   const [createName, setCreateName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const { addBatch } = useUploadStore();
+  const { addBatch, addActiveUpload, updateActiveUpload, removeActiveUpload } = useUploadStore();
   const queryClient = useQueryClient();
 
   const form = useForm<UploadFormValues>({
@@ -201,73 +199,75 @@ export function UploadForm() {
     accept: { "video/*": [] },
     multiple: true,
     maxFiles: 20,
-    disabled: isUploading,
   });
 
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const onSubmit = async (values: UploadFormValues) => {
+  const onSubmit = (values: UploadFormValues) => {
     if (selectedFiles.length === 0) {
       toast.error("Please select at least one video file");
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    const uploadId = nanoid();
+    const label = selectedFiles.length === 1
+      ? selectedFiles[0].name
+      : `${selectedFiles.length} files`;
 
-    try {
-      if (selectedFiles.length === 1) {
-        // Single file upload
-        const formData = new FormData();
-        formData.append("file", selectedFiles[0]);
-        formData.append("chapter_id", values.chapterId);
-        formData.append("title", values.title || selectedFiles[0].name.replace(/\.[^/.]+$/, ""));
-        if (values.uploadedBy) formData.append("uploaded_by", values.uploadedBy);
+    addActiveUpload({ id: uploadId, filename: label, progress: 0, status: "uploading" });
 
-        const result = await uploadVideo(formData, (pct) => {
-          setUploadProgress(pct);
+    // Reset form immediately — upload runs in background
+    setSelectedFiles([]);
+    form.reset();
+    toast.info(`Đang upload "${label}" — bạn có thể tiếp tục dùng app.`);
+
+    if (selectedFiles.length === 1) {
+      const formData = new FormData();
+      formData.append("file", selectedFiles[0]);
+      formData.append("chapter_id", values.chapterId);
+      formData.append("title", values.title || selectedFiles[0].name.replace(/\.[^/.]+$/, ""));
+      if (values.uploadedBy) formData.append("uploaded_by", values.uploadedBy);
+
+      uploadVideo(formData, (pct) => updateActiveUpload(uploadId, { progress: pct }))
+        .then((result) => {
+          updateActiveUpload(uploadId, { status: "done", progress: 100 });
+          setTimeout(() => removeActiveUpload(uploadId), 5000);
+          setUploadResult({ taskId: result.task_id, lectureId: result.lecture_id });
+          toast.success("Upload hoàn tất! Pipeline xử lý đã bắt đầu.");
+        })
+        .catch((error) => {
+          updateActiveUpload(uploadId, { status: "error", error: error instanceof Error ? error.message : "Upload failed" });
+          toast.error(error instanceof Error ? error.message : "Upload failed");
         });
-
-        setUploadResult({
-          taskId: result.task_id,
-          lectureId: result.lecture_id,
+    } else {
+      uploadVideoBulk(selectedFiles, values.chapterId, (pct) => updateActiveUpload(uploadId, { progress: pct }))
+        .then((result) => {
+          updateActiveUpload(uploadId, { status: "done", progress: 100 });
+          setTimeout(() => removeActiveUpload(uploadId), 5000);
+          addBatch({
+            batch_id: result.batch_id,
+            total: result.total,
+            succeeded: 0,
+            failed: 0,
+            processing: result.total,
+            status: "PROCESSING",
+            items: (result.items as { lecture_id?: string; task_id?: string; filename: string; status: string }[]).map((item) => ({
+              lecture_id: item.lecture_id,
+              task_id: item.task_id,
+              filename: item.filename,
+              status: item.status,
+            })),
+            is_done: false,
+          });
+          setBatchResult({ batch_id: result.batch_id, total: result.total });
+          toast.success(`${result.total} files đã upload. Đang xử lý — bạn sẽ nhận thông báo khi xong.`);
+        })
+        .catch((error) => {
+          updateActiveUpload(uploadId, { status: "error", error: error instanceof Error ? error.message : "Upload failed" });
+          toast.error(error instanceof Error ? error.message : "Upload failed");
         });
-
-        toast.success("Upload complete! Processing has started.");
-      } else {
-        // Bulk upload
-        const result = await uploadVideoBulk(selectedFiles, values.chapterId, (pct) => {
-          setUploadProgress(pct);
-        });
-
-        // Register batch in store for polling
-        addBatch({
-          batch_id: result.batch_id,
-          total: result.total,
-          succeeded: 0,
-          failed: 0,
-          processing: result.total,
-          status: "PROCESSING",
-          items: (result.items as { lecture_id?: string; task_id?: string; filename: string; status: string }[]).map((item) => ({
-            lecture_id: item.lecture_id,
-            task_id: item.task_id,
-            filename: item.filename,
-            status: item.status,
-          })),
-          is_done: false,
-        });
-
-        setBatchResult({ batch_id: result.batch_id, total: result.total });
-        toast.success(`${result.total} files uploaded. Processing in background — you'll be notified when done.`);
-      }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Upload failed"
-      );
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -361,7 +361,6 @@ export function UploadForm() {
                   isDragActive
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25 hover:border-primary/50",
-                  isUploading && "cursor-not-allowed opacity-50"
                 )}
               >
                 <input {...getInputProps()} />
@@ -381,28 +380,24 @@ export function UploadForm() {
                               {(file.size / 1024 / 1024).toFixed(1)} MB
                             </Badge>
                           </div>
-                          {!isUploading && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-5 p-0 shrink-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeFile(i);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(i);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         </div>
                       ))}
                     </div>
-                    {!isUploading && (
-                      <p className="text-xs text-muted-foreground text-center mt-2">
-                        Click or drag to add more files
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      Click or drag to add more files
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-center">
@@ -420,17 +415,6 @@ export function UploadForm() {
                   </div>
                 )}
               </div>
-
-              {/* Upload progress */}
-              {isUploading && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Uploading...</span>
-                    <span className="font-medium">{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-2" />
-                </div>
-              )}
 
               {/* Form fields — title only shown for single file */}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -560,22 +544,15 @@ export function UploadForm() {
 
               <Button
                 type="submit"
-                disabled={isUploading || selectedFiles.length === 0}
+                disabled={selectedFiles.length === 0}
                 className="w-full gap-2"
               >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading{selectedFiles.length > 1 ? ` ${selectedFiles.length} files` : ""}...
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="h-4 w-4" />
-                    {selectedFiles.length > 1
+                <>
+                  <UploadCloud className="h-4 w-4" />
+                  {selectedFiles.length > 1
                       ? `Upload ${selectedFiles.length} Files`
                       : "Upload Lecture"}
-                  </>
-                )}
+                </>
               </Button>
             </form>
           </Form>
