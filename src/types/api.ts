@@ -208,6 +208,7 @@ export interface CreateSessionParams {
 export interface SendMessageParams {
   content: string;
   role: "user";
+  lecture_id?: string;  // context: bài giảng đang xem (cho mini chat trên trang lecture)
 }
 
 // ─── WebSocket Message Types ──────────────────────────────────────────────────

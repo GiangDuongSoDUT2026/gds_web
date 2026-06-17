@@ -89,7 +89,7 @@ interface ChatMsg {
   content: string;
 }
 
-function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: string }) {
+function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: string; }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -118,6 +118,7 @@ function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: st
       const res = await sendChatMessage(sessionIdRef.current, {
         content: text,
         role: "user",
+        lecture_id: lectureId,
       });
       setMessages((m) => [...m, { role: "assistant", content: res.content }]);
     } catch {
