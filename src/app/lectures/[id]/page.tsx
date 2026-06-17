@@ -16,23 +16,33 @@ import { queryKeys } from "@/lib/queryKeys";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { formatTimestamp, formatDuration } from "@/lib/utils";
-import type { Scene } from "@/types/api";
+import type { TranscriptChunk, Scene } from "@/types/api";
 
 // ─── Transcript Panel ─────────────────────────────────────────────────────────
 
 function TranscriptPanel({
+  chunks,
   scenes,
   currentTimestamp,
-  onSceneClick,
+  onSeek,
 }: {
+  chunks: TranscriptChunk[];
   scenes: Scene[];
   currentTimestamp: number;
-  onSceneClick: (scene: Scene) => void;
+  onSeek: (sec: number) => void;
 }) {
-  const activeIndex = [...scenes]
-    .map((s, i) => ({ s, i }))
-    .filter(({ s }) => s.timestamp_start <= currentTimestamp)
-    .pop()?.i ?? 0;
+  // Use transcript chunks (ASR) if available, fall back to scene captions
+  const useChunks = chunks.length > 0;
+
+  const activeIndex = useChunks
+    ? [...chunks]
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => c.start_sec <= currentTimestamp)
+        .pop()?.i ?? 0
+    : [...scenes]
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => s.timestamp_start <= currentTimestamp)
+        .pop()?.i ?? 0;
 
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -43,7 +53,7 @@ function TranscriptPanel({
     });
   }, [activeIndex]);
 
-  if (scenes.length === 0) {
+  if (!useChunks && scenes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center py-8">
         <p className="text-sm text-muted-foreground">Chưa có transcript</p>
@@ -51,17 +61,49 @@ function TranscriptPanel({
     );
   }
 
+  if (useChunks) {
+    return (
+      <ScrollArea className="h-full">
+        <div className="space-y-1 p-3">
+          {chunks.map((chunk, i) => {
+            const isActive = i === activeIndex;
+            return (
+              <div
+                key={chunk.id}
+                ref={(el) => { itemRefs.current[i] = el; }}
+                onClick={() => onSeek(chunk.start_sec)}
+                className={`flex gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors text-sm ${
+                  isActive
+                    ? "bg-primary/10 border border-primary/30"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <span className="shrink-0 tabular-nums text-xs text-muted-foreground mt-0.5 w-10">
+                  {formatTimestamp(chunk.start_sec)}
+                </span>
+                <p className={`leading-snug flex-1 ${isActive ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                  {chunk.text}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    );
+  }
+
+  // Fallback: show scene captions
   return (
     <ScrollArea className="h-full">
       <div className="space-y-1 p-3">
         {scenes.map((scene, i) => {
           const isActive = i === activeIndex;
-          const text = scene.transcript ?? scene.ocr_text;
+          const text = scene.transcript;
           return (
             <div
               key={scene.id}
               ref={(el) => { itemRefs.current[i] = el; }}
-              onClick={() => onSceneClick(scene)}
+              onClick={() => onSeek(scene.timestamp_start)}
               className={`flex gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors text-sm ${
                 isActive
                   ? "bg-primary/10 border border-primary/30"
@@ -198,19 +240,18 @@ function LectureContent({ lectureId }: { lectureId: string }) {
 
   const { currentTimestamp, seekTo } = usePlayerStore();
 
-  const handleSceneClick = useCallback(
-    (scene: Scene) => seekTo(scene.timestamp_start),
-    [seekTo]
-  );
+  const handleSeek = useCallback((sec: number) => seekTo(sec), [seekTo]);
 
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 space-y-4">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="aspect-video w-full rounded-lg" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-72 w-full" />
-          <Skeleton className="h-72 w-full" />
+          <div className="space-y-4">
+            <Skeleton className="aspect-video w-full rounded-lg" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+          <Skeleton className="h-full w-full min-h-[400px]" />
         </div>
       </div>
     );
@@ -243,47 +284,57 @@ function LectureContent({ lectureId }: { lectureId: string }) {
         <StatusBadge status={lecture.status} />
       </div>
 
-      <div>
-        <h1 className="text-lg font-bold line-clamp-2">{lecture.title}</h1>
-        <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
-          {lecture.duration_sec != null && lecture.duration_sec > 0 && (
-            <span>{formatDuration(lecture.duration_sec)}</span>
-          )}
-          {lecture.scenes.length > 0 && (
-            <span>{lecture.scenes.length} cảnh</span>
-          )}
-        </div>
-      </div>
-
-      {isProcessing && (
-        <ProcessingStatus taskId={lectureId} lectureId={lectureId} />
-      )}
-
-      {/* Video Player — full width */}
-      <LecturePlayer
-        videoUrl={lecture.video_url ?? ""}
-        initialTimestamp={initialTimestamp}
-        lectureId={lectureId}
-      />
-
-      {/* Below video: Transcript (left) + Chat (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: 360 }}>
-        {/* Transcript */}
-        <div className="rounded-lg border bg-card flex flex-col min-h-0">
-          <div className="px-4 py-2 border-b text-sm font-medium shrink-0">
-            Transcript
+      {/* Two-column layout: left = video + transcript, right = chat */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left column: video + title + transcript */}
+        <div className="flex flex-col gap-3 min-h-0">
+          <div>
+            <h1 className="text-lg font-bold line-clamp-2">{lecture.title}</h1>
+            <div className="flex items-center gap-3 mt-0.5 text-sm text-muted-foreground">
+              {lecture.duration_sec != null && lecture.duration_sec > 0 && (
+                <span>{formatDuration(lecture.duration_sec)}</span>
+              )}
+              {lecture.transcript_chunks.length > 0 && (
+                <span>{lecture.transcript_chunks.length} đoạn transcript</span>
+              )}
+              {lecture.scenes.length > 0 && (
+                <span>{lecture.scenes.length} cảnh</span>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-h-0">
-            <TranscriptPanel
-              scenes={lecture.scenes}
-              currentTimestamp={currentTimestamp}
-              onSceneClick={handleSceneClick}
-            />
+
+          {isProcessing && (
+            <ProcessingStatus taskId={lectureId} lectureId={lectureId} />
+          )}
+
+          <LecturePlayer
+            videoUrl={lecture.video_url ?? ""}
+            initialTimestamp={initialTimestamp}
+            lectureId={lectureId}
+          />
+
+          {/* Transcript below video */}
+          <div className="rounded-lg border bg-card flex flex-col" style={{ height: 280 }}>
+            <div className="px-4 py-2 border-b text-sm font-medium shrink-0">
+              Transcript {lecture.transcript_chunks.length === 0 && lecture.scenes.length > 0 && (
+                <span className="text-xs text-muted-foreground font-normal ml-1">(VL caption)</span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              <TranscriptPanel
+                chunks={lecture.transcript_chunks}
+                scenes={lecture.scenes}
+                currentTimestamp={currentTimestamp}
+                onSeek={handleSeek}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Chat */}
-        <MiniChatBox lectureId={lectureId} courseId={courseId} />
+        {/* Right column: full-height chat */}
+        <div style={{ minHeight: 600 }}>
+          <MiniChatBox lectureId={lectureId} courseId={courseId} />
+        </div>
       </div>
     </div>
   );

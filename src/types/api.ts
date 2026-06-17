@@ -51,6 +51,14 @@ export type LectureStatus =
   | "COMPLETED"
   | "FAILED";
 
+export interface TranscriptChunk {
+  id: string;
+  chunk_index: number;
+  text: string;
+  start_sec: number;
+  end_sec: number;
+}
+
 export interface LectureVideo {
   id: string;
   title: string;
@@ -59,6 +67,7 @@ export interface LectureVideo {
   duration_sec: number | null;
   chapter_id: string;
   scenes: Scene[];
+  transcript_chunks: TranscriptChunk[];
   video_url: string | null;
   created_at: string;
   updated_at?: string;
