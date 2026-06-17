@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Video, ArrowLeft, Loader2, RefreshCw, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, ArrowLeft, Loader2, ChevronRight, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,8 +35,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Badge } from "@/components/ui/badge";
+import { LectureCard } from "@/components/lecture/LectureCard";
 import {
   getChaptersByCourse,
   getLecturesByChapter,
@@ -46,7 +46,6 @@ import {
   deleteChapter,
 } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import { formatDuration } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Chapter } from "@/types/api";
 
@@ -190,8 +189,6 @@ function EditChapterDialog({ chapter, courseId, onClose }: { chapter: Chapter; c
   );
 }
 
-const PAGE_SIZE = 10;
-
 function ChapterLectures({
   chapterId,
   courseId,
@@ -199,8 +196,9 @@ function ChapterLectures({
   chapterId: string;
   courseId: string;
 }) {
-  const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
+  const { isTeacherOrAbove } = useAuthStore();
+  const canManage = isTeacherOrAbove();
 
   const { data: lectures, isLoading } = useQuery({
     queryKey: queryKeys.lectures.byChapter(chapterId),
@@ -218,9 +216,9 @@ function ChapterLectures({
 
   if (isLoading) {
     return (
-      <div className="flex gap-3 overflow-hidden">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-24 w-48 shrink-0 rounded-lg" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="aspect-video w-full rounded-lg" />
         ))}
       </div>
     );
@@ -237,82 +235,33 @@ function ChapterLectures({
     );
   }
 
-  const totalPages = Math.ceil(lectures.length / PAGE_SIZE);
-  const pageLectures = lectures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  // Show first 8, link to chapter page for full list
+  const preview = lectures.slice(0, 8);
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {pageLectures.map((lecture) => {
-          const needsReprocess = lecture.status === "FAILED" || lecture.status === "PENDING";
-          return (
-            <div
-              key={lecture.id}
-              className="shrink-0 w-52 rounded-lg border bg-card p-3 flex flex-col gap-2"
-            >
-              <Link href={`/lectures/${lecture.id}?courseId=${courseId}`} className="flex-1 min-w-0 hover:text-primary transition-colors">
-                <div className="flex items-start gap-2">
-                  <Video className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-sm font-medium line-clamp-2 leading-snug">{lecture.title}</p>
-                </div>
-                {lecture.duration_sec != null && lecture.duration_sec > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1 ml-6">
-                    {formatDuration(lecture.duration_sec)}
-                  </p>
-                )}
-              </Link>
-              <div className="flex items-center justify-between gap-1">
-                <StatusBadge status={lecture.status} />
-                {needsReprocess && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 text-xs gap-1"
-                    disabled={reprocessMutation.isPending}
-                    onClick={() => reprocessMutation.mutate(lecture.id)}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Xử lý lại
-                  </Button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {preview.map((lecture) => (
+          <LectureCard
+            key={lecture.id}
+            lecture={lecture}
+            courseId={courseId}
+            canManage={canManage}
+            isReprocessing={reprocessMutation.isPending}
+            onReprocess={(id) => reprocessMutation.mutate(id)}
+          />
+        ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              ‹
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {page + 1} / {totalPages}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              ›
-            </Button>
-          </div>
-        )}
+      {lectures.length > 8 && (
         <Link
           href={`/courses/${courseId}/chapters/${chapterId}`}
-          className="ml-auto flex items-center gap-1 text-sm text-primary hover:underline"
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
         >
           Xem tất cả {lectures.length} video
           <ChevronRight className="h-4 w-4" />
         </Link>
-      </div>
+      )}
     </div>
   );
 }

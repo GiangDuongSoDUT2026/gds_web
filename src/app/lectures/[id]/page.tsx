@@ -89,7 +89,7 @@ interface ChatMsg {
   content: string;
 }
 
-function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: string; }) {
+function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: string }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -129,19 +129,19 @@ function MiniChatBox({ lectureId, courseId }: { lectureId: string; courseId?: st
   }
 
   return (
-    <div className="rounded-lg border bg-card flex flex-col" style={{ height: 220 }}>
+    <div className="rounded-lg border bg-card flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0">
         <MessageSquare className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">Hỏi đáp về bài giảng</span>
       </div>
 
-      <ScrollArea className="flex-1 px-4 py-2">
+      <ScrollArea className="flex-1 px-4 py-2 min-h-0">
         {messages.length === 0 && (
           <p className="text-xs text-muted-foreground italic">Đặt câu hỏi về nội dung video...</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`mb-2 flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-lg px-3 py-1.5 text-sm ${
+            <div className={`max-w-[85%] rounded-lg px-3 py-1.5 text-sm ${
               m.role === "user"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground"
@@ -207,13 +207,10 @@ function LectureContent({ lectureId }: { lectureId: string }) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 space-y-4">
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-3">
-            <Skeleton className="aspect-video w-full rounded-lg" />
-          </div>
-          <div className="lg:col-span-2 space-y-2">
-            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
+        <Skeleton className="aspect-video w-full rounded-lg" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Skeleton className="h-72 w-full" />
+          <Skeleton className="h-72 w-full" />
         </div>
       </div>
     );
@@ -262,23 +259,21 @@ function LectureContent({ lectureId }: { lectureId: string }) {
         <ProcessingStatus taskId={lectureId} lectureId={lectureId} />
       )}
 
-      {/* Main grid: Player + Transcript */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left: Video Player */}
-        <div className="lg:col-span-3">
-          <LecturePlayer
-            videoUrl={lecture.video_url ?? ""}
-            initialTimestamp={initialTimestamp}
-            lectureId={lectureId}
-          />
-        </div>
+      {/* Video Player — full width */}
+      <LecturePlayer
+        videoUrl={lecture.video_url ?? ""}
+        initialTimestamp={initialTimestamp}
+        lectureId={lectureId}
+      />
 
-        {/* Right: Transcript/Slide panel */}
-        <div className="lg:col-span-2 rounded-lg border bg-card" style={{ height: 420 }}>
-          <div className="px-4 py-2 border-b text-sm font-medium">
+      {/* Below video: Transcript (left) + Chat (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: 360 }}>
+        {/* Transcript */}
+        <div className="rounded-lg border bg-card flex flex-col min-h-0">
+          <div className="px-4 py-2 border-b text-sm font-medium shrink-0">
             Transcript
           </div>
-          <div className="h-[calc(100%-41px)]">
+          <div className="flex-1 min-h-0">
             <TranscriptPanel
               scenes={lecture.scenes}
               currentTimestamp={currentTimestamp}
@@ -286,10 +281,10 @@ function LectureContent({ lectureId }: { lectureId: string }) {
             />
           </div>
         </div>
-      </div>
 
-      {/* Below: Mini Chat */}
-      <MiniChatBox lectureId={lectureId} courseId={courseId} />
+        {/* Chat */}
+        <MiniChatBox lectureId={lectureId} courseId={courseId} />
+      </div>
     </div>
   );
 }

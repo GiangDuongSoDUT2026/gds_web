@@ -5,17 +5,17 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Video, RefreshCw, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { LectureCard } from "@/components/lecture/LectureCard";
 import { useAuthStore } from "@/store/useAuthStore";
 import { getLecturesByChapter, getChaptersByCourse, reprocessLecture, updateLecture, deleteLecture } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import { formatDuration } from "@/lib/utils";
+import type { LectureVideo } from "@/types/api";
 
 export default function ChapterDetailPage() {
   const params = useParams<{ id: string; chapterId: string }>();
@@ -24,7 +24,7 @@ export default function ChapterDetailPage() {
   const queryClient = useQueryClient();
   const { isTeacherOrAbove } = useAuthStore();
   const canManage = isTeacherOrAbove();
-  const [editingLectureId, setEditingLectureId] = useState<string | null>(null);
+  const [editingLecture, setEditingLecture] = useState<LectureVideo | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
   const { data: chapters } = useQuery({
@@ -53,7 +53,7 @@ export default function ChapterDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.lectures.byChapter(chapterId) });
       toast.success("Đã cập nhật tên bài giảng");
-      setEditingLectureId(null);
+      setEditingLecture(null);
     },
     onError: (err: Error) => toast.error(err.message ?? "Không thể cập nhật"),
   });
@@ -106,9 +106,9 @@ export default function ChapterDetailPage() {
       </div>
 
       {isLoading && (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="aspect-video w-full rounded-lg" />
           ))}
         </div>
       )}
@@ -122,83 +122,43 @@ export default function ChapterDetailPage() {
         </div>
       )}
 
+      {/* Edit title inline dialog */}
+      {editingLecture && (
+        <div className="flex items-center gap-2 p-3 rounded-md border bg-muted">
+          <span className="text-sm text-muted-foreground shrink-0">Đổi tên:</span>
+          <Input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            className="h-8 text-sm"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") updateMutation.mutate({ id: editingLecture.id, title: editTitle });
+              if (e.key === "Escape") setEditingLecture(null);
+            }}
+          />
+          <Button size="sm" className="h-8 text-xs shrink-0" disabled={updateMutation.isPending}
+            onClick={() => updateMutation.mutate({ id: editingLecture.id, title: editTitle })}>
+            {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lưu"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 text-xs shrink-0" onClick={() => setEditingLecture(null)}>Hủy</Button>
+        </div>
+      )}
+
       {lectures && lectures.length > 0 && (
-        <div className="space-y-2">
-          {lectures.map((lecture) => {
-            const needsReprocess = lecture.status === "FAILED" || lecture.status === "PENDING";
-            const isEditing = editingLectureId === lecture.id;
-            return (
-              <div
-                key={lecture.id}
-                className="flex items-center justify-between gap-3 rounded-md border p-3"
-              >
-                {isEditing ? (
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="h-7 text-sm"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") updateMutation.mutate({ id: lecture.id, title: editTitle });
-                        if (e.key === "Escape") setEditingLectureId(null);
-                      }}
-                    />
-                    <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending}
-                      onClick={() => updateMutation.mutate({ id: lecture.id, title: editTitle })}>
-                      {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lưu"}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingLectureId(null)}>Hủy</Button>
-                  </div>
-                ) : (
-                  <Link
-                    href={`/lectures/${lecture.id}?courseId=${courseId}`}
-                    className="flex items-center gap-2 min-w-0 flex-1 hover:text-primary transition-colors"
-                  >
-                    <Video className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium line-clamp-1">{lecture.title}</p>
-                      {lecture.duration_sec != null && lecture.duration_sec > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDuration(lecture.duration_sec)}
-                          {lecture.scenes.length > 0 && ` · ${lecture.scenes.length} cảnh`}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                )}
-                <div className="flex items-center gap-2 shrink-0">
-                  <StatusBadge status={lecture.status} />
-                  {needsReprocess && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 text-xs"
-                      disabled={reprocessMutation.isPending}
-                      onClick={() => reprocessMutation.mutate(lecture.id)}
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      Xử lý lại
-                    </Button>
-                  )}
-                  {canManage && !isEditing && (
-                    <>
-                      <Button size="icon" variant="ghost" className="h-7 w-7"
-                        onClick={() => { setEditingLectureId(lecture.id); setEditTitle(lecture.title); }}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="icon" variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => { if (confirm(`Xóa "${lecture.title}"?`)) deleteMutation.mutate(lecture.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {lectures.map((lecture) => (
+            <LectureCard
+              key={lecture.id}
+              lecture={lecture}
+              courseId={courseId}
+              canManage={canManage}
+              isReprocessing={reprocessMutation.isPending}
+              isDeleting={deleteMutation.isPending}
+              onReprocess={(id) => reprocessMutation.mutate(id)}
+              onEdit={(lec) => { setEditingLecture(lec); setEditTitle(lec.title); }}
+              onDelete={(id) => deleteMutation.mutate(id)}
+            />
+          ))}
         </div>
       )}
     </div>
