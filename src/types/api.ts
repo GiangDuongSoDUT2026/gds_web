@@ -23,6 +23,7 @@ export interface Chapter {
   course_id: string;
   title: string;
   order_index: number;
+  lecture_count: number;
   created_at: string;
   updated_at?: string;
 }

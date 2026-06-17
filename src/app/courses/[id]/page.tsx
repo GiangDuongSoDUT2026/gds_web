@@ -406,6 +406,9 @@ export default function CourseDetailPage() {
                     {chapter.order_index}
                   </Badge>
                   <span className="font-medium flex-1 min-w-0 truncate">{chapter.title}</span>
+                  <span className="text-xs text-muted-foreground font-normal shrink-0">
+                    {chapter.lecture_count} video
+                  </span>
                   {canManage && (
                     <div className="flex gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
                       <Button size="icon" variant="ghost" className="h-7 w-7"

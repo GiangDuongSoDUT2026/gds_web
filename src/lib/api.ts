@@ -472,3 +472,8 @@ export async function updateLecture(id: string, input: { title: string }): Promi
 export async function deleteLecture(id: string): Promise<void> {
   await apiClient.delete(`/api/v1/lectures/${id}`);
 }
+
+export async function getLectureSummary(id: string): Promise<{ lecture_id: string; title: string; summary: string | null; key_topics: string[] }> {
+  const { data } = await apiClient.get(`/api/v1/lectures/${id}/summary`);
+  return data;
+}
