@@ -70,7 +70,7 @@ export default function ChapterDetailPage() {
   const chapter = chapters?.find((c) => c.id === chapterId);
 
   const completed = lectures?.filter((l) => l.status === "COMPLETED").length ?? 0;
-  const processing = lectures?.filter((l) => l.status === "PROCESSING").length ?? 0;
+  const processing = lectures?.filter((l) => l.status !== "COMPLETED" && l.status !== "FAILED").length ?? 0;
   const failed = lectures?.filter((l) => l.status === "FAILED").length ?? 0;
 
   return (
