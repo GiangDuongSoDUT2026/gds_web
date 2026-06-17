@@ -285,7 +285,7 @@ export async function createChatSession(
   params: CreateSessionParams
 ): Promise<ChatSession> {
   const { data } = await apiClient.post<ChatSession>(
-    "/chat/chat/sessions",
+    "/chat/sessions",
     params
   );
   return data;
@@ -296,7 +296,7 @@ export async function sendChatMessage(
   params: SendMessageParams
 ): Promise<ChatMessageResponse> {
   const { data } = await apiClient.post<ChatMessageResponse>(
-    `/chat/chat/sessions/${sessionId}/messages`,
+    `/chat/sessions/${sessionId}/messages`,
     params
   );
   return data;

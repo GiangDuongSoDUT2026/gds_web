@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatCard, Citation, WsMessage } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// Derive WebSocket host from current browser location so the app works
-// regardless of how it's accessed (localhost, Tailscale IP, domain, etc.)
+// Derive WebSocket base URL. NEXT_PUBLIC_WS_BASE_URL takes priority (set in Vercel env).
+// Falls back to current hostname + port 8002 for local dev.
 function getWsBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_BASE_URL) {
+    return process.env.NEXT_PUBLIC_WS_BASE_URL;
+  }
   if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_WS_BASE_URL ?? "ws://localhost:8002";
+    return "ws://localhost:8002";
   }
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.hostname;

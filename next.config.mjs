@@ -11,7 +11,7 @@ const nextConfig = {
       },
       {
         source: "/chat/:path*",
-        destination: `${CHATBOT_URL}/:path*`,
+        destination: `${CHATBOT_URL}/chat/:path*`,
       },
       // Proxy static files through Next.js so browser only needs port 3000
       {
