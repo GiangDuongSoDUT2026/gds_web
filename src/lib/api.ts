@@ -241,6 +241,7 @@ export async function uploadVideo(
     formData,
     {
       headers: { "Content-Type": "multipart/form-data" },
+      timeout: 600_000,
       onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (onProgress && progressEvent.total) {
           const percentage = Math.round(
@@ -348,6 +349,7 @@ export async function uploadVideoBulk(
 
   const { data } = await apiClient.post("/api/v1/upload/videos", formData, {
     headers: { "Content-Type": "multipart/form-data" },
+    timeout: 600_000,
     onUploadProgress: (e: AxiosProgressEvent) => {
       if (onProgress && e.total) {
         onProgress(Math.round((e.loaded * 100) / e.total));
@@ -378,6 +380,7 @@ export async function chatUpload(
     formData,
     {
       headers: { "Content-Type": "multipart/form-data" },
+      timeout: 600_000,
       onUploadProgress: (e: AxiosProgressEvent) => {
         if (onProgress && e.total) {
           onProgress(Math.round((e.loaded * 100) / e.total));
