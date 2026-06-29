@@ -68,14 +68,14 @@ function ChatHistorySidebar({
       </div>
 
       {/* Sessions list */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground px-3 text-center">
             <MessageSquare className="h-8 w-8 mb-2 opacity-40" />
             <p className="text-xs">Chưa có lịch sử chat</p>
           </div>
         ) : (
-          <div className="p-2 space-y-0.5 w-full overflow-x-hidden">
+          <div className="p-2 space-y-0.5">
             {pinned.length > 0 && (
               <>
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-1 py-1">
@@ -115,7 +115,7 @@ function ChatHistorySidebar({
             )}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }
