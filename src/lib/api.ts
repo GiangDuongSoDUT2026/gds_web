@@ -152,7 +152,7 @@ export async function getHealth(): Promise<{ status: string }> {
 
 // ─── Admin GPU Queue Stats ────────────────────────────────────────────────────
 
-export async function getGpuQueueStats(): Promise<{ today: Record<string, number>; gpu_sessions_online: number }> {
+export async function getGpuQueueStats(): Promise<{ today: Record<string, number>; all_time: Record<string, number>; gpu_sessions_online: number }> {
   const { data } = await apiClient.get("/api/v1/admin/gpu-queue/stats");
   return data;
 }
