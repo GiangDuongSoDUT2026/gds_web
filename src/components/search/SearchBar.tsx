@@ -112,13 +112,13 @@ export function SearchBar({
           {/* Recent searches dropdown */}
           {showRecent && recentSearches.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border bg-popover shadow-md">
-              <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+              <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-left">
                 Tìm kiếm gần đây
               </p>
               {recentSearches.map((s) => (
                 <div
                   key={s}
-                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm"
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm text-left"
                   onMouseDown={(e) => { e.preventDefault(); setQuery(s); handleSubmit(s); }}
                 >
                   <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
