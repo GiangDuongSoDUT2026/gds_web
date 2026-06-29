@@ -86,7 +86,11 @@ export function LecturePlayer({
             watched_seconds: watchedSecondsRef.current,
           });
           await logLearningEvent({ event_type: "watch", lecture_id: lectureId });
-        } catch { /* silent fail */ }
+        } catch (err) {
+          console.error("[LecturePlayer] updateProgress failed:", err);
+        }
+      } else {
+        console.debug("[LecturePlayer] interval fired but watchedSeconds=0, pos=", lastReportedRef.current);
       }
     }, 10_000);
     return () => {
