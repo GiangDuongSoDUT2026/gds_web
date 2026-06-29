@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -17,6 +18,7 @@ import {
   Wifi,
   WifiOff,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecommendationCard } from "@/components/recommendations/RecommendationCard";
 import {
   getPrograms, getCoursesByProgram, getGpuQueueStats, getGpuSessions,
-  getSystemStats, getLearningStats, getRecommendations, getMyProgress,
+  getSystemStats, getLearningStats, getRecommendations, getMyProgress, search,
 } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -201,6 +203,29 @@ export default function DashboardPage() {
     select: (data) => data.filter((p) => !p.completed && p.percent > 0).slice(0, 4),
   });
 
+  const [lastSearchQuery, setLastSearchQuery] = useState("");
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("gds-recent-searches") ?? "[]") as string[];
+      if (stored.length > 0) setLastSearchQuery(stored[0]);
+    } catch {}
+  }, []);
+
+  const { data: searchBasedRecs = [] } = useQuery({
+    queryKey: ["search-based-recs", lastSearchQuery],
+    queryFn: async () => {
+      const res = await search({ q: lastSearchQuery, mode: "semantic", limit: 12 });
+      const seen = new Set<string>();
+      return res.results.filter((r) => {
+        if (seen.has(r.lecture_id)) return false;
+        seen.add(r.lecture_id);
+        return true;
+      }).slice(0, 8);
+    },
+    enabled: !!lastSearchQuery,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const handleSearch = (query: string, mode: SearchMode) => {
     const params = new URLSearchParams({ q: query, mode });
     router.push(`/search?${params.toString()}`);
@@ -252,6 +277,38 @@ export default function DashboardPage() {
                       </div>
                       <Progress value={p.percent} className="h-1.5" />
                     </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Search-based recommendations */}
+      {searchBasedRecs.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Search className="h-5 w-5 text-primary" />
+            Dựa trên tìm kiếm &ldquo;{lastSearchQuery}&rdquo;
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {searchBasedRecs.map((r) => (
+              <Link key={r.scene_id} href={`/lectures/${r.lecture_id}?t=${Math.floor(r.timestamp_start)}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                      {r.keyframe_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.keyframe_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <BookOpen className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium line-clamp-2 leading-snug">{r.lecture_title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{r.course_name}</p>
                   </CardContent>
                 </Card>
               </Link>
