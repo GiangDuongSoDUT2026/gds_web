@@ -3,7 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useCallback } from "react";
-import { Search as SearchIcon } from "lucide-react";
+import { Search as SearchIcon, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
@@ -63,6 +64,12 @@ function SearchResults() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" />
+          Trang chủ
+        </Link>
+      </div>
       <div>
         <h1 className="text-2xl font-bold">Tìm kiếm</h1>
         <p className="text-muted-foreground">
