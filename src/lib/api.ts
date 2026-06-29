@@ -162,6 +162,14 @@ export async function getSystemStats(): Promise<{ total_users: number; videos: R
   return data;
 }
 
+export async function getActivityStats(): Promise<{
+  realtime: { active_users: number; lectures_watched: number; processing_today: number; streaming_now: number };
+  timeline: { days: string[]; chat: number[]; access: number[]; completions: number[]; uploads: number[]; failed: number[] };
+}> {
+  const { data } = await apiClient.get("/api/v1/admin/activity");
+  return data;
+}
+
 export async function getSystemLearningStats(): Promise<{
   total_watched_seconds: number;
   total_hours: number;

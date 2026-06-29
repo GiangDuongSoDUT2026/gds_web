@@ -367,11 +367,11 @@ export default function DashboardPage() {
             color="text-green-500"
           />
           <ClickableStatCard
-            title="Hoạt động học tập"
+            title="Hoạt động"
             value={totalInteractions}
             sub={`${learningStats?.total_scenes_viewed ?? 0} cảnh xem • ${learningStats?.completed_lectures ?? 0} bài hoàn thành`}
             icon={Activity}
-            href="/learning"
+            href="/activity"
             color="text-orange-500"
           />
         </div>

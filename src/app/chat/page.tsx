@@ -343,9 +343,10 @@ function StatMini({ icon, label, value }: { icon: React.ReactNode; label: string
 
 function VideoHistoryPanel() {
   const { data: progress, isLoading } = useQuery({
-    queryKey: ["my-progress-chat"],
+    queryKey: ["my-progress"],
     queryFn: getMyProgress,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const inProgress = (progress ?? []).filter((p) => !p.completed && p.watched_seconds > 0);
