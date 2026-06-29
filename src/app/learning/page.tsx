@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Clock, Eye, CheckCircle2, Flame, TrendingUp } from "lucide-react";
-import { getLearningStats, getMyProgress } from "@/lib/api";
+import { ArrowLeft, BookOpen, Clock, Eye, CheckCircle2, Flame, TrendingUp, Users } from "lucide-react";
+import { getLearningStats, getMyProgress, getSystemLearningStats } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/store/useAuthStore";
 
 function fmt(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -16,7 +17,17 @@ function fmt(seconds: number): string {
 }
 
 export default function LearningStatsPage() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { isFacultyAdminOrAbove } = useAuthStore();
+  const isAdmin = isFacultyAdminOrAbove();
+
+  const { data: sysStats, isLoading: sysLoading } = useQuery({
+    queryKey: ["system-learning-stats"],
+    queryFn: getSystemLearningStats,
+    enabled: isAdmin,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: myStats, isLoading: myStatsLoading } = useQuery({
     queryKey: ["learning-stats"],
     queryFn: getLearningStats,
     staleTime: 60 * 1000,
@@ -30,6 +41,8 @@ export default function LearningStatsPage() {
 
   const inProgress = progress.filter((p) => !p.completed && p.percent > 0);
   const completed = progress.filter((p) => p.completed);
+
+  const statsLoading = isAdmin ? sysLoading : myStatsLoading;
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 max-w-4xl space-y-6">
@@ -45,48 +58,103 @@ export default function LearningStatsPage() {
 
       <div className="flex items-center gap-3">
         <TrendingUp className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Hoạt động học tập</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Hoạt động học tập</h1>
+          {isAdmin && (
+            <p className="text-sm text-muted-foreground mt-0.5">Thống kê toàn hệ thống — tất cả người dùng</p>
+          )}
+        </div>
       </div>
 
-      {/* Summary stats */}
-      {statsLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : stats ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="pt-4 flex flex-col items-center gap-1">
-              <Clock className="h-5 w-5 text-blue-500" />
-              <p className="text-2xl font-bold">{fmt(stats.total_watched_seconds)}</p>
-              <p className="text-xs text-muted-foreground text-center">Thời gian xem</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex flex-col items-center gap-1">
-              <Eye className="h-5 w-5 text-purple-500" />
-              <p className="text-2xl font-bold">{stats.total_scenes_viewed}</p>
-              <p className="text-xs text-muted-foreground text-center">Cảnh đã xem</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex flex-col items-center gap-1">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <p className="text-2xl font-bold">{stats.completed_lectures}</p>
-              <p className="text-xs text-muted-foreground text-center">Bài hoàn thành</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex flex-col items-center gap-1">
-              <Flame className="h-5 w-5 text-orange-500" />
-              <p className="text-2xl font-bold">{stats.streak_days}</p>
-              <p className="text-xs text-muted-foreground text-center">Ngày liên tiếp</p>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+      {/* System-wide stats for admins */}
+      {isAdmin && (
+        <>
+          {statsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : sysStats ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Clock className="h-5 w-5 text-blue-500" />
+                  <p className="text-2xl font-bold">{fmt(sysStats.total_watched_seconds)}</p>
+                  <p className="text-xs text-muted-foreground text-center">Tổng thời gian xem</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <p className="text-2xl font-bold">{sysStats.total_completed_lectures}</p>
+                  <p className="text-xs text-muted-foreground text-center">Bài hoàn thành</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Eye className="h-5 w-5 text-purple-500" />
+                  <p className="text-2xl font-bold">{sysStats.total_progress_records}</p>
+                  <p className="text-xs text-muted-foreground text-center">Lượt xem video</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Users className="h-5 w-5 text-orange-500" />
+                  <p className="text-2xl font-bold">{sysStats.active_users}</p>
+                  <p className="text-xs text-muted-foreground text-center">Người dùng đã xem</p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+          <hr className="border-border" />
+          <p className="text-sm font-medium text-muted-foreground">Lịch sử xem của bạn</p>
+        </>
+      )}
+
+      {/* Personal stats for non-admins */}
+      {!isAdmin && (
+        <>
+          {myStatsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : myStats ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Clock className="h-5 w-5 text-blue-500" />
+                  <p className="text-2xl font-bold">{fmt(myStats.total_watched_seconds)}</p>
+                  <p className="text-xs text-muted-foreground text-center">Thời gian xem</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Eye className="h-5 w-5 text-purple-500" />
+                  <p className="text-2xl font-bold">{myStats.total_scenes_viewed}</p>
+                  <p className="text-xs text-muted-foreground text-center">Cảnh đã xem</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <p className="text-2xl font-bold">{myStats.completed_lectures}</p>
+                  <p className="text-xs text-muted-foreground text-center">Bài hoàn thành</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex flex-col items-center gap-1">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                  <p className="text-2xl font-bold">{myStats.streak_days}</p>
+                  <p className="text-xs text-muted-foreground text-center">Ngày liên tiếp</p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </>
+      )}
 
       {/* In progress */}
       {!progressLoading && inProgress.length > 0 && (

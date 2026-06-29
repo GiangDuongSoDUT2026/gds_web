@@ -162,6 +162,17 @@ export async function getSystemStats(): Promise<{ total_users: number; videos: R
   return data;
 }
 
+export async function getSystemLearningStats(): Promise<{
+  total_watched_seconds: number;
+  total_hours: number;
+  total_completed_lectures: number;
+  total_progress_records: number;
+  active_users: number;
+}> {
+  const { data } = await apiClient.get("/api/v1/admin/learning-stats");
+  return data;
+}
+
 export async function getGpuSessions(): Promise<Array<{
   id: string; session_type: string; status: string;
   is_online: boolean; last_heartbeat: string | null;

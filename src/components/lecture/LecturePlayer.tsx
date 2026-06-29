@@ -72,9 +72,12 @@ export function LecturePlayer({
     [setCurrentTimestamp, onTimeUpdate]
   );
 
+  // Evaluate once — avoid using function reference as effect dependency
+  const isAuth = isAuthenticated();
+
   // Report progress every 30 seconds
   useEffect(() => {
-    if (!isAuthenticated() || !lectureId) return;
+    if (!isAuth || !lectureId) return;
     progressIntervalRef.current = setInterval(async () => {
       if (watchedSecondsRef.current > 0) {
         try {
@@ -89,12 +92,12 @@ export function LecturePlayer({
     return () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
-  }, [lectureId, isAuthenticated]);
+  }, [lectureId, isAuth]);
 
   // Mark completed when video ends
   const handleEnded = useCallback(async () => {
     setIsPlaying(false);
-    if (!isAuthenticated() || !lectureId) return;
+    if (!isAuth || !lectureId) return;
     try {
       await updateProgress(lectureId, {
         position_sec: 0,
@@ -102,7 +105,7 @@ export function LecturePlayer({
         completed: true,
       });
     } catch { /* silent fail */ }
-  }, [lectureId, isAuthenticated, setIsPlaying]);
+  }, [lectureId, isAuth, setIsPlaying]);
 
   return (
     <div className="relative w-full overflow-hidden rounded-lg bg-black">
