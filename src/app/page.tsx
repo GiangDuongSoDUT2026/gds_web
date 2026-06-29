@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -18,7 +18,6 @@ import {
   Wifi,
   WifiOff,
   ExternalLink,
-  Search,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,6 +225,19 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Merge search-based recs + backend recs into one deduped list
+  const mergedRecs = useMemo(() => {
+    const seen = new Set<string>();
+    const items: Array<{ kind: "search"; r: (typeof searchBasedRecs)[0] } | { kind: "rec"; r: (typeof recommendations)[0] }> = [];
+    for (const r of searchBasedRecs) {
+      if (!seen.has(r.lecture_id)) { seen.add(r.lecture_id); items.push({ kind: "search", r }); }
+    }
+    for (const r of recommendations) {
+      if (!seen.has(r.lecture_id) && items.length < 8) { seen.add(r.lecture_id); items.push({ kind: "rec", r }); }
+    }
+    return items;
+  }, [searchBasedRecs, recommendations]);
+
   const handleSearch = (query: string, mode: SearchMode) => {
     const params = new URLSearchParams({ q: query, mode });
     router.push(`/search?${params.toString()}`);
@@ -285,49 +297,45 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Search-based recommendations */}
-      {searchBasedRecs.length > 0 && (
+      {/* Merged recommendations: search-based first, then backend recs */}
+      {mergedRecs.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Search className="h-5 w-5 text-primary" />
-            Dựa trên tìm kiếm &ldquo;{lastSearchQuery}&rdquo;
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {searchBasedRecs.map((r) => (
-              <Link key={r.scene_id} href={`/lectures/${r.lecture_id}?t=${Math.floor(r.timestamp_start)}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="p-3 space-y-2">
-                    <div className="aspect-video rounded-md overflow-hidden bg-muted">
-                      {r.keyframe_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={r.keyframe_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <BookOpen className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium line-clamp-2 leading-snug">{r.lecture_title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.course_name}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Đề xuất cho bạn
+            </h2>
+            {lastSearchQuery && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Dựa trên tìm kiếm &ldquo;{lastSearchQuery}&rdquo; và lịch sử xem
+              </p>
+            )}
           </div>
-        </section>
-      )}
-
-      {/* Recommendations */}
-      {recommendations.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Đề xuất cho bạn
-          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {recommendations.slice(0, 8).map((rec) => (
-              <RecommendationCard key={rec.lecture_id} lecture={rec} />
-            ))}
+            {mergedRecs.map((item) =>
+              item.kind === "search" ? (
+                <Link key={item.r.scene_id} href={`/lectures/${item.r.lecture_id}?t=${Math.floor(item.r.timestamp_start)}`}>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                    <CardContent className="p-3 space-y-2">
+                      <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                        {item.r.keyframe_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.r.keyframe_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <BookOpen className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium line-clamp-2 leading-snug">{item.r.lecture_title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.r.course_name}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ) : (
+                <RecommendationCard key={item.r.lecture_id} lecture={item.r} />
+              )
+            )}
           </div>
         </section>
       )}
