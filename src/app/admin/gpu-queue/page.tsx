@@ -15,7 +15,7 @@ const PAGE_SIZE = 20;
 const STATUS_OPTIONS = [
   { label: "Tất cả", value: "" },
   { label: "Đang chờ GPU", value: "QUEUED_FOR_GPU" },
-  { label: "Đang xử lý", value: "RUNNING" },
+  { label: "Đang xử lý", value: "IN_PROGRESS" },
   { label: "Hoàn thành", value: "COMPLETED" },
   { label: "Thất bại", value: "FAILED" },
 ];
@@ -24,7 +24,7 @@ const STATUS_OPTIONS = [
 const STATUS_ALL_TIME_KEYS: Record<string, string[]> = {
   "": [],
   "QUEUED_FOR_GPU": ["QUEUED_FOR_GPU"],
-  "RUNNING": ["RUNNING", "DISPATCHED", "SCENES_READY", "AWAITING_EMBEDDING"],
+  "IN_PROGRESS": ["RUNNING", "DISPATCHED", "SCENES_READY", "AWAITING_EMBEDDING"],
   "COMPLETED": ["COMPLETED"],
   "FAILED": ["FAILED"],
 };

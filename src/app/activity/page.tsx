@@ -112,11 +112,11 @@ export default function ActivityPage() {
             sub="trong 5 phút qua"
           />
           <StatBox
-            label="Đang xử lý hôm nay"
+            label="Đang xử lý"
             value={rt?.processing_today ?? 0}
             icon={Cpu}
             color="text-yellow-500"
-            sub="chưa hoàn thành"
+            sub="chưa hoàn thành / thất bại"
           />
           <StatBox
             label="Video đang stream"

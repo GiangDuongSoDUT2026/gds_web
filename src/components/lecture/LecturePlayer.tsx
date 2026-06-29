@@ -88,7 +88,7 @@ export function LecturePlayer({
           await logLearningEvent({ event_type: "watch", lecture_id: lectureId });
         } catch { /* silent fail */ }
       }
-    }, 30_000);
+    }, 10_000);
     return () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
