@@ -149,7 +149,7 @@ function ChatHistoryItem({
           {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: vi })}
         </p>
       </div>
-      <div className="flex items-center gap-0.5 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
         <Button
           variant="ghost"
           size="icon"
@@ -340,8 +340,9 @@ function VideoHistoryPanel() {
   const { data: progress, isLoading } = useQuery({
     queryKey: ["my-progress"],
     queryFn: getMyProgress,
-    staleTime: 30 * 1000,
+    staleTime: 0,
     refetchOnWindowFocus: true,
+    refetchInterval: 30 * 1000,
   });
 
   const inProgress = (progress ?? []).filter((p) => !p.completed && p.watched_seconds > 0);
