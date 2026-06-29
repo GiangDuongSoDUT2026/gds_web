@@ -114,7 +114,10 @@ export function LecturePlayer({
       <div className="aspect-video w-full">
         <ReactPlayer
           ref={playerRef as React.Ref<unknown>}
-          url={videoUrl.includes("drive.google.com") || videoUrl.includes("docs.google.com") ? videoUrl : toProxiedUrl(videoUrl)}
+          url={(() => {
+            const base = videoUrl.includes("drive.google.com") || videoUrl.includes("docs.google.com") ? videoUrl : toProxiedUrl(videoUrl);
+            return initialTimestamp > 0 ? `${base}#t=${initialTimestamp}` : base;
+          })()}
           width="100%"
           height="100%"
           controls
