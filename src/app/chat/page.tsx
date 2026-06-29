@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,7 +136,7 @@ function ChatHistoryItem({
   return (
     <div
       onClick={onSelect}
-      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors ${
+      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors border-b border-border/40 last:border-0 ${
         active ? "bg-primary/10 text-primary" : "hover:bg-accent"
       }`}
     >
@@ -145,23 +146,23 @@ function ChatHistoryItem({
           <p className="text-[10px] text-muted-foreground truncate mt-0.5 leading-snug">{item.preview}</p>
         )}
         <p className="text-[10px] text-muted-foreground mt-1">
-          {formatDistanceToNow(item.createdAt, { addSuffix: true })}
+          {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: vi })}
         </p>
       </div>
-      <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+      <div className="flex items-center gap-0.5 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="h-5 w-5"
           onClick={(e) => { e.stopPropagation(); onPin(item.id, !item.pinned); }}
           title={item.pinned ? "Bỏ ghim" : "Ghim"}
         >
-          <Pin className={`h-3 w-3 ${item.pinned ? "fill-current text-primary" : ""}`} />
+          <Pin className={`h-3 w-3 ${item.pinned ? "fill-current text-primary" : "text-muted-foreground"}`} />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-muted-foreground hover:text-destructive transition-colors"
+          className="h-5 w-5 text-muted-foreground hover:text-destructive"
           onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
           title="Xóa"
         >
