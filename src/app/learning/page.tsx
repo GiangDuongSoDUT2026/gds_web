@@ -39,7 +39,7 @@ export default function LearningStatsPage() {
     staleTime: 60 * 1000,
   });
 
-  const inProgress = progress.filter((p) => !p.completed && p.percent > 0);
+  const inProgress = progress.filter((p) => !p.completed && p.watched_seconds > 0);
   const completed = progress.filter((p) => p.completed);
 
   const statsLoading = isAdmin ? sysLoading : myStatsLoading;

@@ -199,7 +199,7 @@ export default function DashboardPage() {
     queryKey: ["my-progress"],
     queryFn: getMyProgress,
     enabled: isAuthenticated(),
-    select: (data) => data.filter((p) => !p.completed && p.percent > 0).slice(0, 4),
+    select: (data) => data.filter((p) => !p.completed && p.watched_seconds > 0).slice(0, 4),
   });
 
   const [lastSearchQuery, setLastSearchQuery] = useState("");
@@ -305,11 +305,6 @@ export default function DashboardPage() {
               <Sparkles className="h-5 w-5 text-primary" />
               Đề xuất cho bạn
             </h2>
-            {lastSearchQuery && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Dựa trên tìm kiếm &ldquo;{lastSearchQuery}&rdquo; và lịch sử xem
-              </p>
-            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {mergedRecs.map((item) =>

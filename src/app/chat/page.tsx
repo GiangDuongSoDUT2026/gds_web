@@ -52,7 +52,7 @@ function ChatHistorySidebar({
     <div className="flex flex-col h-full bg-muted/30">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b">
-        <span className="text-sm font-semibold">Chat History</span>
+        <span className="text-sm font-semibold">Lịch sử chat</span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
           <PanelLeft className="h-4 w-4" />
         </Button>
@@ -62,7 +62,7 @@ function ChatHistorySidebar({
       <div className="p-2 border-b">
         <Button className="w-full gap-2" size="sm" onClick={onNewChat}>
           <Plus className="h-4 w-4" />
-          New Chat
+          Chat mới
         </Button>
       </div>
 
@@ -71,7 +71,7 @@ function ChatHistorySidebar({
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground px-3 text-center">
             <MessageSquare className="h-8 w-8 mb-2 opacity-40" />
-            <p className="text-xs">No chat history yet</p>
+            <p className="text-xs">Chưa có lịch sử chat</p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
@@ -286,6 +286,7 @@ function TeacherContextPanel() {
     ASR: "⚙ ASR",
     OCR: "⚙ OCR",
     EMBEDDING: "⚙ embed",
+    PROCESSING: "Đang xử lý",
   };
 
   if (isLoading) {
@@ -298,7 +299,7 @@ function TeacherContextPanel() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Uploads</p>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tải lên gần đây</p>
       {!lectures || lectures.length === 0 ? (
         <p className="text-xs text-muted-foreground">No lectures yet</p>
       ) : (
@@ -319,7 +320,7 @@ function TeacherContextPanel() {
       <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" asChild>
         <Link href="/upload">
           <Plus className="h-3.5 w-3.5" />
-          Upload Video
+          Tải lên video
         </Link>
       </Button>
     </div>
@@ -347,7 +348,7 @@ function VideoHistoryPanel() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const inProgress = (progress ?? []).filter((p) => !p.completed && p.percent > 0);
+  const inProgress = (progress ?? []).filter((p) => !p.completed && p.watched_seconds > 0);
   const completed = (progress ?? []).filter((p) => p.completed);
 
   if (isLoading) {
@@ -365,9 +366,9 @@ function VideoHistoryPanel() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Watch History</p>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Lịch sử xem</p>
       {allItems.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No watch history yet</p>
+        <p className="text-xs text-muted-foreground">Chưa có lịch sử xem</p>
       ) : (
         <div className="space-y-1">
           {allItems.map((item) => (
@@ -392,7 +393,7 @@ function VideoHistoryPanel() {
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground shrink-0">
-                    {item._type === "done" ? "Done" : `${item.percent}%`}
+                    {item._type === "done" ? "Xong" : `${item.percent}%`}
                   </span>
                 </div>
               </div>
