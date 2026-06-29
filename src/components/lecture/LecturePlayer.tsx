@@ -129,9 +129,7 @@ export function LecturePlayer({
           progressInterval={500}
           config={{
             file: {
-              attributes: {
-                crossOrigin: "anonymous",
-              },
+              attributes: {},
             },
           }}
         />
