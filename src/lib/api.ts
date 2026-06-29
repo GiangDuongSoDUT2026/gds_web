@@ -157,6 +157,20 @@ export async function getGpuQueueStats(): Promise<{ today: Record<string, number
   return data;
 }
 
+export async function getSystemStats(): Promise<{ total_users: number; videos: Record<string, number> }> {
+  const { data } = await apiClient.get("/api/v1/admin/system-stats");
+  return data;
+}
+
+export async function getGpuSessions(): Promise<Array<{
+  id: string; session_type: string; status: string;
+  is_online: boolean; last_heartbeat: string | null;
+  notebook_url: string | null; current_job_id: string | null;
+}>> {
+  const { data } = await apiClient.get("/api/v1/admin/gpu-sessions");
+  return data;
+}
+
 // ─── Programs ─────────────────────────────────────────────────────────────────
 
 export async function getPrograms(): Promise<Program[]> {

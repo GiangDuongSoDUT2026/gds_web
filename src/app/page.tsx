@@ -5,60 +5,158 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   BookOpen,
-  Video,
+  Users,
   Play,
   Sparkles,
   Clapperboard,
-  MousePointerClick,
+  Activity,
+  Cpu,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Wifi,
+  WifiOff,
+  ExternalLink,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/SearchBar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { RecommendationCard } from "@/components/recommendations/RecommendationCard";
-import { getPrograms, getCoursesByProgram, getGpuQueueStats, getLearningStats, getRecommendations, getMyProgress } from "@/lib/api";
+import {
+  getPrograms, getCoursesByProgram, getGpuQueueStats, getGpuSessions,
+  getSystemStats, getLearningStats, getRecommendations, getMyProgress,
+} from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { SearchMode } from "@/types/api";
 
-function StatsCard({
-  title,
-  value,
-  icon: Icon,
-  description,
+function ClickableStatCard({
+  title, value, sub, icon: Icon, href, color,
 }: {
-  title: string;
-  value: string | number;
-  icon: React.ElementType;
-  description?: string;
+  title: string; value: string | number; sub?: string;
+  icon: React.ElementType; href: string; color?: string;
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
-      </CardContent>
-    </Card>
+    <Link href={href}>
+      <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer group">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">{title}</CardTitle>
+          <Icon className={`h-4 w-4 ${color ?? "text-muted-foreground"}`} />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{value}</div>
+          {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function GpuStatusPanel() {
+  const { data: gpuStats } = useQuery({
+    queryKey: ["gpu-queue-stats"],
+    queryFn: getGpuQueueStats,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["gpu-sessions"],
+    queryFn: getGpuSessions,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const today = gpuStats?.today ?? {};
+  const statusItems = [
+    { key: "COMPLETED", label: "Hoàn thành", icon: CheckCircle2, color: "text-green-500" },
+    { key: "QUEUED_FOR_GPU", label: "Chờ xử lý", icon: Clock, color: "text-yellow-500" },
+    { key: "RUNNING", label: "Đang chạy", icon: Activity, color: "text-blue-500" },
+    { key: "FAILED", label: "Thất bại", icon: XCircle, color: "text-red-500" },
+  ];
+
+  const onlineSessions = sessions.filter((s) => s.is_online);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* GPU Queue Today */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Cpu className="h-4 w-4 text-primary" />
+              GPU Queue hôm nay
+            </CardTitle>
+            <Link href="/admin/gpu-queue" className="text-xs text-primary hover:underline flex items-center gap-1">
+              Chi tiết <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            {statusItems.map(({ key, label, icon: Icon, color }) => (
+              <div key={key} className="flex items-center gap-2">
+                <Icon className={`h-4 w-4 ${color} shrink-0`} />
+                <div>
+                  <p className="text-lg font-bold leading-none">{today[key] ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GPU Sessions */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            GPU Sessions
+            <Badge variant={onlineSessions.length > 0 ? "default" : "secondary"} className="text-xs ml-auto">
+              {onlineSessions.length} online
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sessions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Không có session nào</p>
+          ) : (
+            <div className="space-y-2">
+              {sessions.slice(0, 4).map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-xs">
+                  {s.is_online
+                    ? <Wifi className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    : <WifiOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                  <span className="font-medium">{s.session_type}</span>
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">
+                    {s.status}
+                  </Badge>
+                  {s.current_job_id && (
+                    <span className="text-muted-foreground truncate">đang xử lý job</span>
+                  )}
+                  <span className="ml-auto text-muted-foreground shrink-0">
+                    {s.last_heartbeat
+                      ? new Date(s.last_heartbeat).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isFacultyAdminOrAbove } = useAuthStore();
 
-  const { data: programs, isLoading: programsLoading } = useQuery({
+  const { data: programs } = useQuery({
     queryKey: queryKeys.programs.all(),
     queryFn: getPrograms,
     retry: 1,
@@ -75,10 +173,11 @@ export default function DashboardPage() {
     enabled: !!programs,
   });
 
-  const { data: gpuStats } = useQuery({
-    queryKey: ["gpu-queue-stats"],
-    queryFn: getGpuQueueStats,
-    staleTime: 60 * 1000,
+  const { data: systemStats } = useQuery({
+    queryKey: ["system-stats"],
+    queryFn: getSystemStats,
+    enabled: isAuthenticated() && isFacultyAdminOrAbove(),
+    staleTime: 2 * 60 * 1000,
   });
 
   const { data: learningStats } = useQuery({
@@ -107,8 +206,8 @@ export default function DashboardPage() {
     router.push(`/search?${params.toString()}`);
   };
 
-  const processingCount = (gpuStats?.today?.QUEUED_FOR_GPU ?? 0) + (gpuStats?.today?.RUNNING ?? 0);
-  const failedCount = gpuStats?.today?.FAILED ?? 0;
+  const completedVideos = systemStats?.videos?.["COMPLETED"] ?? 0;
+  const processingVideos = (systemStats?.videos?.["PROCESSING"] ?? 0) + (systemStats?.videos?.["PENDING"] ?? 0);
   const totalInteractions = (learningStats?.total_scenes_viewed ?? 0) + (learningStats?.completed_lectures ?? 0);
 
   return (
@@ -116,18 +215,14 @@ export default function DashboardPage() {
       {/* Hero search */}
       <div className="flex flex-col items-center gap-6 py-8 text-center">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Giảng Đường Số
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Giảng Đường Số</h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Tìm kiếm trong transcript, slide và nội dung hình ảnh của tất cả bài giảng
-            bằng tìm kiếm từ khóa hoặc ngữ nghĩa AI.
+            Tìm kiếm trong transcript, slide và nội dung hình ảnh của tất cả bài giảng.
           </p>
         </div>
         <div className="w-full max-w-2xl">
           <SearchBar onSearch={handleSearch} size="hero" />
         </div>
-        {/* Login CTA for guests */}
         {!isAuthenticated() && (
           <p className="text-sm text-muted-foreground">
             <Link href="/login" className="text-primary hover:underline font-medium">Đăng nhập</Link>
@@ -145,10 +240,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {inProgress.map((p) => (
-              <Link
-                key={p.lecture_id}
-                href={`/lectures/${p.lecture_id}?t=${Math.floor(p.last_position_sec)}`}
-              >
+              <Link key={p.lecture_id} href={`/lectures/${p.lecture_id}?t=${Math.floor(p.last_position_sec)}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-3 space-y-2">
                     <p className="text-sm font-medium line-clamp-2">{p.lecture_title}</p>
@@ -183,80 +275,53 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Stats */}
+      {/* Stats — clickable boxes */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Tổng quan</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {programsLoading ? (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </>
-          ) : (
-            <>
-              <StatsCard
-                title="Chương trình học"
-                value={programs?.length ?? 0}
-                icon={BookOpen}
-                description="Tổng số chương trình đào tạo"
-              />
-              <StatsCard
-                title="Môn học"
-                value={totalCourses}
-                icon={Video}
-                description="Môn học trong tất cả chương trình"
-              />
-              <StatsCard
-                title="Videos"
-                value={processingCount > 0 ? `${processingCount} đang xử lý` : failedCount > 0 ? `${failedCount} cần xử lý lại` : "Tất cả đã xong"}
-                icon={Clapperboard}
-                description={failedCount > 0 ? `${failedCount} video thất bại cần retry` : "Không có video bị lỗi"}
-              />
-              <StatsCard
-                title="Hoạt động"
-                value={totalInteractions}
-                icon={MousePointerClick}
-                description={`${learningStats?.total_scenes_viewed ?? 0} scenes xem • ${learningStats?.completed_lectures ?? 0} bài hoàn thành`}
-              />
-            </>
-          )}
+          <ClickableStatCard
+            title="Chương trình & Môn học"
+            value={`${programs?.length ?? "—"} chương trình`}
+            sub={`${totalCourses} môn học`}
+            icon={BookOpen}
+            href="/programs"
+            color="text-blue-500"
+          />
+          <ClickableStatCard
+            title="Người dùng"
+            value={systemStats?.total_users ?? "—"}
+            sub="Tổng số tài khoản hệ thống"
+            icon={Users}
+            href="/admin/users"
+            color="text-purple-500"
+          />
+          <ClickableStatCard
+            title="Videos hoàn thành"
+            value={completedVideos || "—"}
+            sub={processingVideos > 0 ? `${processingVideos} đang xử lý` : "Không có video đang xử lý"}
+            icon={Clapperboard}
+            href="/admin/gpu-queue"
+            color="text-green-500"
+          />
+          <ClickableStatCard
+            title="Hoạt động học tập"
+            value={totalInteractions}
+            sub={`${learningStats?.total_scenes_viewed ?? 0} cảnh xem • ${learningStats?.completed_lectures ?? 0} bài hoàn thành`}
+            icon={Activity}
+            href="/admin/gpu-queue"
+            color="text-orange-500"
+          />
         </div>
       </div>
 
-      {/* Programs list */}
-      {!programsLoading && programs && programs.length > 0 && (
+      {/* GPU & System Status */}
+      {isAuthenticated() && isFacultyAdminOrAbove() && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Chương trình học</h2>
-            <Link
-              href="/programs"
-              className="text-sm text-primary hover:underline"
-            >
-              Xem tất cả
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {programs.slice(0, 6).map((program) => (
-              <Link key={program.id} href={`/programs/${program.id}`}>
-                <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-primary shrink-0" />
-                      <CardTitle className="text-base line-clamp-1">
-                        {program.name}
-                      </CardTitle>
-                    </div>
-                    {program.description && (
-                      <CardDescription className="line-clamp-2">
-                        {program.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Cpu className="h-5 w-5 text-primary" />
+            Hệ thống xử lý
+          </h2>
+          <GpuStatusPanel />
         </div>
       )}
     </div>
