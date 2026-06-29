@@ -216,7 +216,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const res = await search({ q: lastSearchQuery, mode: "semantic", limit: 12 });
       const seen = new Set<string>();
-      return res.results.filter((r) => {
+      return (res.results ?? []).filter((r) => {
         if (seen.has(r.lecture_id)) return false;
         seen.add(r.lecture_id);
         return true;

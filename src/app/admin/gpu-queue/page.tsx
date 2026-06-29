@@ -46,13 +46,17 @@ export default function GpuQueuePage() {
       if (statusFilter) params.set("status", statusFilter);
 
       const [jobsRes, sessionsRes, statsRes] = await Promise.all([
-        apiClient.get<{ total: number; items: AdminProcessingJob[] }>(`/api/v1/admin/gpu-queue?${params}`),
+        apiClient.get<{ total: number; items: AdminProcessingJob[] } | AdminProcessingJob[]>(`/api/v1/admin/gpu-queue?${params}`),
         apiClient.get<AdminGpuSession[]>("/api/v1/admin/gpu-sessions"),
         apiClient.get<GpuQueueStats>("/api/v1/admin/gpu-queue/stats"),
       ]);
-      setJobs(jobsRes.data.items);
-      setTotal(jobsRes.data.total);
-      setSessions(sessionsRes.data);
+      // Support both old flat-array and new {total, items} response shapes
+      const rawJobs = jobsRes.data;
+      const items = Array.isArray(rawJobs) ? rawJobs : (rawJobs.items ?? []);
+      const total = Array.isArray(rawJobs) ? rawJobs.length : (rawJobs.total ?? 0);
+      setJobs(items);
+      setTotal(total);
+      setSessions(Array.isArray(sessionsRes.data) ? sessionsRes.data : []);
       setStats(statsRes.data);
     } catch {
       // silent

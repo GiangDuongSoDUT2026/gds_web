@@ -435,5 +435,6 @@ export interface AdminGpuSession {
 
 export interface GpuQueueStats {
   today: Record<string, number>;
+  all_time: Record<string, number>;
   gpu_sessions_online: number;
 }
