@@ -70,12 +70,15 @@ function GpuStatusPanel() {
     refetchInterval: 60 * 1000,
   });
 
+  // Use all_time for RUNNING/QUEUED (current state regardless of when created)
+  // Use today for COMPLETED/FAILED (recent activity)
+  const allTime = gpuStats?.all_time ?? {};
   const today = gpuStats?.today ?? {};
   const statusItems = [
-    { key: "COMPLETED", label: "Hoàn thành", icon: CheckCircle2, color: "text-green-500" },
-    { key: "QUEUED_FOR_GPU", label: "Chờ xử lý", icon: Clock, color: "text-yellow-500" },
-    { key: "RUNNING", label: "Đang chạy", icon: Activity, color: "text-blue-500" },
-    { key: "FAILED", label: "Thất bại", icon: XCircle, color: "text-red-500" },
+    { key: "COMPLETED", label: "Hoàn thành", icon: CheckCircle2, color: "text-green-500", counts: today },
+    { key: "QUEUED_FOR_GPU", label: "Chờ xử lý", icon: Clock, color: "text-yellow-500", counts: allTime },
+    { key: "RUNNING", label: "Đang chạy", icon: Activity, color: "text-blue-500", counts: allTime },
+    { key: "FAILED", label: "Thất bại", icon: XCircle, color: "text-red-500", counts: today },
   ];
 
   const onlineSessions = sessions.filter((s) => s.is_online);
@@ -88,7 +91,7 @@ function GpuStatusPanel() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Cpu className="h-4 w-4 text-primary" />
-              GPU Queue hôm nay
+              GPU Queue
             </CardTitle>
             <Link href="/admin/gpu-queue" className="text-xs text-primary hover:underline flex items-center gap-1">
               Chi tiết <ExternalLink className="h-3 w-3" />
@@ -97,11 +100,11 @@ function GpuStatusPanel() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3">
-            {statusItems.map(({ key, label, icon: Icon, color }) => (
+            {statusItems.map(({ key, label, icon: Icon, color, counts }) => (
               <div key={key} className="flex items-center gap-2">
                 <Icon className={`h-4 w-4 ${color} shrink-0`} />
                 <div>
-                  <p className="text-lg font-bold leading-none">{today[key] ?? 0}</p>
+                  <p className="text-lg font-bold leading-none">{counts[key] ?? 0}</p>
                   <p className="text-xs text-muted-foreground">{label}</p>
                 </div>
               </div>
@@ -131,11 +134,11 @@ function GpuStatusPanel() {
                   {s.is_online
                     ? <Wifi className="h-3.5 w-3.5 text-green-500 shrink-0" />
                     : <WifiOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                  <span className="font-medium">{s.session_type}</span>
-                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                    {s.status}
+                  <span className={`font-medium ${!s.is_online ? "text-muted-foreground" : ""}`}>{s.session_type}</span>
+                  <Badge variant="outline" className={`text-[10px] px-1 py-0 ${!s.is_online ? "text-muted-foreground border-muted" : ""}`}>
+                    {s.is_online ? s.status : "offline"}
                   </Badge>
-                  {s.current_job_id && (
+                  {s.is_online && s.current_job_id && (
                     <span className="text-muted-foreground truncate">đang xử lý job</span>
                   )}
                   <span className="ml-auto text-muted-foreground shrink-0">
