@@ -70,15 +70,16 @@ function GpuStatusPanel() {
     refetchInterval: 60 * 1000,
   });
 
-  // Use all_time for RUNNING/QUEUED (current state regardless of when created)
-  // Use today for COMPLETED/FAILED (recent activity)
   const allTime = gpuStats?.all_time ?? {};
   const today = gpuStats?.today ?? {};
+  // Combine all intermediate processing statuses into one count
+  const inProgressCount = (["RUNNING", "DISPATCHED", "SCENES_READY", "AWAITING_EMBEDDING"] as const)
+    .reduce((sum, k) => sum + (allTime[k] ?? 0), 0);
   const statusItems = [
-    { key: "COMPLETED", label: "Hoàn thành", icon: CheckCircle2, color: "text-green-500", counts: today },
-    { key: "QUEUED_FOR_GPU", label: "Chờ xử lý", icon: Clock, color: "text-yellow-500", counts: allTime },
-    { key: "RUNNING", label: "Đang chạy", icon: Activity, color: "text-blue-500", counts: allTime },
-    { key: "FAILED", label: "Thất bại", icon: XCircle, color: "text-red-500", counts: today },
+    { label: "Hoàn thành", value: today["COMPLETED"] ?? 0, icon: CheckCircle2, color: "text-green-500" },
+    { label: "Chờ xử lý", value: allTime["QUEUED_FOR_GPU"] ?? 0, icon: Clock, color: "text-yellow-500" },
+    { label: "Đang xử lý", value: inProgressCount, icon: Activity, color: "text-blue-500" },
+    { label: "Thất bại", value: today["FAILED"] ?? 0, icon: XCircle, color: "text-red-500" },
   ];
 
   const onlineSessions = sessions.filter((s) => s.is_online);
@@ -100,11 +101,11 @@ function GpuStatusPanel() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3">
-            {statusItems.map(({ key, label, icon: Icon, color, counts }) => (
-              <div key={key} className="flex items-center gap-2">
+            {statusItems.map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="flex items-center gap-2">
                 <Icon className={`h-4 w-4 ${color} shrink-0`} />
                 <div>
-                  <p className="text-lg font-bold leading-none">{counts[key] ?? 0}</p>
+                  <p className="text-lg font-bold leading-none">{value}</p>
                   <p className="text-xs text-muted-foreground">{label}</p>
                 </div>
               </div>
