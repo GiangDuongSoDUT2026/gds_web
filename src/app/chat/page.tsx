@@ -74,7 +74,7 @@ function ChatHistorySidebar({
             <p className="text-xs">Chưa có lịch sử chat</p>
           </div>
         ) : (
-          <div className="p-2 space-y-1">
+          <div className="p-2 space-y-0.5">
             {pinned.length > 0 && (
               <>
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-1 py-1">
@@ -132,48 +132,42 @@ function ChatHistoryItem({
   onRemove: (id: string) => void;
   onSelect: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
-      className={`group flex items-start gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors ${
+      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors ${
         active ? "bg-primary/10 text-primary" : "hover:bg-accent"
       }`}
     >
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{item.title}</p>
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <p className="text-xs font-medium truncate leading-snug">{item.title || "Chat mới"}</p>
         {item.preview && (
-          <p className="text-[10px] text-muted-foreground truncate mt-0.5">{item.preview}</p>
+          <p className="text-[10px] text-muted-foreground truncate mt-0.5 leading-snug">{item.preview}</p>
         )}
-        <p className="text-[10px] text-muted-foreground mt-0.5">
+        <p className="text-[10px] text-muted-foreground mt-1">
           {formatDistanceToNow(item.createdAt, { addSuffix: true })}
         </p>
       </div>
-      {hovered && (
-        <div className="flex items-center gap-0.5 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5"
-            onClick={() => onPin(item.id, !item.pinned)}
-            title={item.pinned ? "Unpin" : "Pin"}
-          >
-            <Pin className={`h-3 w-3 ${item.pinned ? "fill-current" : ""}`} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 text-destructive hover:text-destructive"
-            onClick={() => onRemove(item.id)}
-            title="Delete"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onPin(item.id, !item.pinned); }}
+          title={item.pinned ? "Bỏ ghim" : "Ghim"}
+        >
+          <Pin className={`h-3 w-3 ${item.pinned ? "fill-current text-primary" : ""}`} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 text-muted-foreground hover:text-destructive transition-colors"
+          onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+          title="Xóa"
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
     </div>
   );
 }
