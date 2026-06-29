@@ -136,11 +136,11 @@ function ChatHistoryItem({
   return (
     <div
       onClick={onSelect}
-      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors border-b border-border/40 last:border-0 ${
+      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors border-b border-border/40 last:border-0 w-full min-w-0 ${
         active ? "bg-primary/10 text-primary" : "hover:bg-accent"
       }`}
     >
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate leading-snug">{item.title || "Chat mới"}</p>
         {item.preview && (
           <p className="text-[10px] text-muted-foreground truncate mt-0.5 leading-snug">{item.preview}</p>
@@ -149,11 +149,11 @@ function ChatHistoryItem({
           {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: vi })}
         </p>
       </div>
-      <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+      <div className="flex items-center gap-0.5 shrink-0">
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => { e.stopPropagation(); onPin(item.id, !item.pinned); }}
           title={item.pinned ? "Bỏ ghim" : "Ghim"}
         >
@@ -162,7 +162,7 @@ function ChatHistoryItem({
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-muted-foreground hover:text-destructive"
+          className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
           onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
           title="Xóa"
         >
