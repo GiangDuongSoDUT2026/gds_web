@@ -75,7 +75,7 @@ function ChatHistorySidebar({
             <p className="text-xs">Chưa có lịch sử chat</p>
           </div>
         ) : (
-          <div className="p-2 space-y-0.5">
+          <div className="p-2 space-y-0.5 w-full overflow-x-hidden">
             {pinned.length > 0 && (
               <>
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-1 py-1">
@@ -136,7 +136,7 @@ function ChatHistoryItem({
   return (
     <div
       onClick={onSelect}
-      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors border-b border-border/40 last:border-0 w-full min-w-0 ${
+      className={`group flex items-start gap-2 rounded-md px-2 py-2.5 cursor-pointer transition-colors border-b border-border/40 last:border-0 w-full min-w-0 overflow-hidden ${
         active ? "bg-primary/10 text-primary" : "hover:bg-accent"
       }`}
     >
