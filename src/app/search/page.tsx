@@ -10,8 +10,9 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { search } from "@/lib/api";
+import { search, logLearningEvent } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import { useAuthStore } from "@/store/useAuthStore";
 import type { SearchMode, SearchParams } from "@/types/api";
 
 const PAGE_SIZE = 10;
@@ -34,6 +35,8 @@ function SearchResults() {
     offset,
   };
 
+  const { isAuthenticated } = useAuthStore();
+
   const {
     data,
     isLoading,
@@ -41,7 +44,13 @@ function SearchResults() {
     isFetching,
   } = useQuery({
     queryKey: queryKeys.search.results(params),
-    queryFn: () => search(params),
+    queryFn: async () => {
+      const result = await search(params);
+      if (isAuthenticated()) {
+        logLearningEvent({ event_type: "search", payload: { q, mode } }).catch(() => {});
+      }
+      return result;
+    },
     enabled: !!q,
   });
 

@@ -40,7 +40,7 @@ export function LecturePlayer({
 
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchedSecondsRef = useRef(0);
-  const lastReportedRef = useRef(0);
+  const lastReportedRef = useRef(initialTimestamp);
 
   // Handle seek requests from store
   useEffect(() => {
