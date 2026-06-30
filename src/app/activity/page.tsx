@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, Play, Cpu, Radio, MessageSquare, TrendingUp, CheckCircle2, Upload, Tv2 } from "lucide-react";
+import { ArrowLeft, Users, Play, Cpu, Radio, MessageSquare, TrendingUp, CheckCircle2, Upload } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -84,7 +84,6 @@ export default function ActivityPage() {
         <TrendingUp className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Hoạt động hệ thống</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Thời gian thực + thống kê 7 ngày qua</p>
         </div>
       </div>
 
@@ -105,11 +104,10 @@ export default function ActivityPage() {
             sub="trong 5 phút qua"
           />
           <StatBox
-            label="Bài giảng đang xem"
-            value={rt?.lectures_watched ?? 0}
+            label="Số lượng video lưu trữ"
+            value={rt?.total_videos_stored ?? 0}
             icon={Play}
             color="text-green-500"
-            sub="trong 5 phút qua"
           />
           <StatBox
             label="Đang xử lý"
@@ -123,13 +121,9 @@ export default function ActivityPage() {
             value={rt?.streaming_now ?? 0}
             icon={Radio}
             color="text-red-500"
-            sub="trong 2 phút qua"
           />
         </div>
       )}
-
-      <hr className="border-border" />
-      <p className="text-sm font-medium text-muted-foreground">Thống kê 7 ngày qua</p>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,8 +146,8 @@ export default function ActivityPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Chart 2: Access events */}
-          <ChartCard title="Lượt truy cập" icon={TrendingUp}>
+          {/* Chart 2: Search events */}
+          <ChartCard title="Lượt tìm kiếm" icon={TrendingUp}>
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={accessData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -195,21 +189,6 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {/* Chart 5: Streaming now (realtime bar — single value) */}
-      {!isLoading && (
-        <ChartCard title="Video đang được stream ngay bây giờ" icon={Tv2}>
-          <div className="flex items-center gap-6 py-4">
-            <div className="flex items-center gap-3">
-              <span className={`flex h-3 w-3 rounded-full ${(rt?.streaming_now ?? 0) > 0 ? "bg-red-500 animate-pulse" : "bg-gray-400"}`} />
-              <span className="text-3xl font-bold">{rt?.streaming_now ?? 0}</span>
-              <span className="text-muted-foreground text-sm">video đang stream</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{rt?.lectures_watched ?? 0}</span> bài giảng có người xem trong 5 phút qua
-            </div>
-          </div>
-        </ChartCard>
-      )}
     </div>
   );
 }
