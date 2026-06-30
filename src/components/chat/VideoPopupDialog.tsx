@@ -35,6 +35,8 @@ export function VideoPopupDialog({
   onOpenCitation,
 }: VideoPopupDialogProps) {
   const [currentTime, setCurrentTime] = useState(timestampStart);
+  const currentTimeRef = useRef(timestampStart);
+  const lastSavedTimeRef = useRef(timestampStart);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasSeeked = useRef(false);
   const watchedSecondsRef = useRef(0);
@@ -73,38 +75,44 @@ export function VideoPopupDialog({
     if (open) {
       hasSeeked.current = false;
       watchedSecondsRef.current = 0;
+      currentTimeRef.current = timestampStart;
+      lastSavedTimeRef.current = timestampStart;
     }
-  }, [open]);
+  }, [open, timestampStart]);
 
-  // Record progress every 30s
+  // Record progress every 10s — use refs to avoid restarting the interval on time updates
   useEffect(() => {
     if (!open || !lectureId) return;
     const timer = setInterval(async () => {
-      watchedSecondsRef.current += 30;
+      // Accumulate watched seconds (forward playback only)
+      const delta = currentTimeRef.current - lastSavedTimeRef.current;
+      if (delta > 0 && delta < 12) watchedSecondsRef.current += delta;
+      lastSavedTimeRef.current = currentTimeRef.current;
+      if (watchedSecondsRef.current <= 0) return;
       try {
         await updateProgress(lectureId, {
-          position_sec: currentTime,
+          position_sec: currentTimeRef.current,
           watched_seconds: watchedSecondsRef.current,
         });
-        queryClient.invalidateQueries({ queryKey: ["my-progress-chat"] });
+        queryClient.invalidateQueries({ queryKey: ["my-progress"] });
       } catch { /* non-critical */ }
-    }, 30_000);
+    }, 10_000);
     return () => clearInterval(timer);
-  }, [open, lectureId, currentTime, queryClient]);
+  }, [open, lectureId, queryClient]);
 
   const handleClose = useCallback(async () => {
     if (lectureId && watchedSecondsRef.current > 0) {
       try {
         await updateProgress(lectureId, {
-          position_sec: currentTime,
+          position_sec: currentTimeRef.current,
           watched_seconds: watchedSecondsRef.current,
         });
-        queryClient.invalidateQueries({ queryKey: ["my-progress-chat"] });
+        queryClient.invalidateQueries({ queryKey: ["my-progress"] });
       } catch { /* non-critical */ }
     }
     watchedSecondsRef.current = 0;
     onClose();
-  }, [lectureId, currentTime, onClose, queryClient]);
+  }, [lectureId, onClose, queryClient]);
 
   const related = relatedCitations.filter((c) => {
     const cid = c.lecture_id || "";
@@ -147,7 +155,11 @@ export function VideoPopupDialog({
               src={toVideoStreamUrl(resolvedVideoUrl)}
               controls
               className="w-full h-full"
-              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onTimeUpdate={(e) => {
+                const t = e.currentTarget.currentTime;
+                setCurrentTime(t);
+                currentTimeRef.current = t;
+              }}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-white/50 text-sm">
