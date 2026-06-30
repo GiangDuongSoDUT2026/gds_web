@@ -24,7 +24,7 @@ const STATUS_OPTIONS = [
 const STATUS_ALL_TIME_KEYS: Record<string, string[]> = {
   "": [],
   "QUEUED_FOR_GPU": ["QUEUED_FOR_GPU"],
-  "IN_PROGRESS": ["RUNNING", "DISPATCHED", "SCENES_READY", "AWAITING_EMBEDDING"],
+  "IN_PROGRESS": ["SCENES_READY", "AWAITING_EMBEDDING"],
   "COMPLETED": ["COMPLETED"],
   "FAILED": ["FAILED"],
 };
@@ -109,34 +109,29 @@ export default function GpuQueuePage() {
         <KaggleGuide />
       </div>
 
-      {/* Stats — all time, theo thứ tự pipeline */}
+      {/* Stats — pipeline order */}
       {stats && (() => {
-        const PIPELINE_ORDER = [
-          "QUEUED_FOR_GPU",
-          "DISPATCHED",
-          "RUNNING",
-          "SCENES_READY",
-          "AWAITING_EMBEDDING",
-          "COMPLETED",
-          "FAILED",
-          "PENDING",
-        ];
-        const allEntries = Object.entries(stats.all_time);
-        const sorted = [
-          ...PIPELINE_ORDER.filter(s => s in stats.all_time).map(s => [s, stats.all_time[s]] as [string, number]),
-          ...allEntries.filter(([s]) => !PIPELINE_ORDER.includes(s)),
+        const DISPLAY_ITEMS: { key: string; label: string; count: number; filter?: string }[] = [
+          { key: "QUEUED_FOR_GPU", label: "Chờ GPU", count: stats.all_time["QUEUED_FOR_GPU"] ?? 0, filter: "QUEUED_FOR_GPU" },
+          { key: "SCENES_READY", label: "Tách cảnh xong", count: stats.all_time["SCENES_READY"] ?? 0, filter: "SCENES_READY" },
+          { key: "asr", label: "ASR", count: stats.stages?.asr ?? 0, filter: "" },
+          { key: "clip", label: "CLIP", count: stats.stages?.clip ?? 0, filter: "" },
+          { key: "caption", label: "Caption", count: stats.stages?.caption ?? 0, filter: "" },
+          { key: "jina", label: "Jina AI", count: stats.stages?.jina ?? 0, filter: "" },
+          { key: "COMPLETED", label: "Hoàn thành", count: stats.all_time["COMPLETED"] ?? 0, filter: "COMPLETED" },
+          { key: "FAILED", label: "Thất bại", count: stats.all_time["FAILED"] ?? 0, filter: "FAILED" },
         ];
         return (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {sorted.map(([status, count]) => (
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            {DISPLAY_ITEMS.map(({ key, label, count, filter }) => (
               <div
-                key={status}
-                className={`rounded-lg border px-3 py-2 text-center cursor-pointer hover:bg-muted/50 transition-colors ${statusFilter === status ? "border-primary bg-primary/5" : ""}`}
-                onClick={() => handleFilterChange(status === statusFilter ? "" : status)}
-                title={status}
+                key={key}
+                className={`rounded-lg border px-3 py-2 text-center ${filter !== undefined ? "cursor-pointer hover:bg-muted/50" : ""} transition-colors ${statusFilter === filter && filter ? "border-primary bg-primary/5" : ""}`}
+                onClick={() => filter !== undefined && handleFilterChange(filter === statusFilter ? "" : filter)}
+                title={key}
               >
                 <p className="text-lg font-bold">{count}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{status.replace(/_/g, " ")}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{label}</p>
               </div>
             ))}
           </div>

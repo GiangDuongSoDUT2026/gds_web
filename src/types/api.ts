@@ -437,4 +437,10 @@ export interface GpuQueueStats {
   today: Record<string, number>;
   all_time: Record<string, number>;
   gpu_sessions_online: number;
+  stages: {
+    asr: number;
+    clip: number;
+    caption: number;
+    jina: number;
+  };
 }
