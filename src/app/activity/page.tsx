@@ -61,12 +61,8 @@ export default function ActivityPage() {
   // Build recharts data arrays
   const chatData = tl?.days.map((d, i) => ({ day: d.slice(5), value: tl.chat[i] })) ?? [];
   const accessData = tl?.days.map((d, i) => ({ day: d.slice(5), value: tl.access[i] })) ?? [];
-  const completionData = tl?.days.map((d, i) => ({ day: d.slice(5), value: tl.completions[i] })) ?? [];
-  const uploadData = tl?.days.map((d, i) => ({
-    day: d.slice(5),
-    "Tổng upload": tl.uploads[i],
-    "Thất bại": tl.failed[i],
-  })) ?? [];
+  const uploadData = tl?.days.map((d, i) => ({ day: d.slice(5), value: tl.uploads[i] })) ?? [];
+  const gpuData = tl?.days.map((d, i) => ({ day: d.slice(5), value: tl.gpu_completed[i] })) ?? [];
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6 max-w-5xl space-y-6">
@@ -159,30 +155,28 @@ export default function ActivityPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Chart 3: Completed lectures */}
-          <ChartCard title="Bài hoàn thành" icon={CheckCircle2}>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={completionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" tick={TICK_STYLE} />
-                <YAxis tick={TICK_STYLE} allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="value" name="Hoàn thành" fill="#3b82f6" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          {/* Chart 4: Uploads */}
-          <ChartCard title="Video upload & xử lý" icon={Upload}>
+          {/* Chart 3: Video uploads per day */}
+          <ChartCard title="Số video upload" icon={Upload}>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={uploadData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="day" tick={TICK_STYLE} />
                 <YAxis tick={TICK_STYLE} allowDecimals={false} />
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="Tổng upload" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Thất bại" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="value" name="Upload" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Chart 4: GPU activity — jobs completed per day */}
+          <ChartCard title="GPU hoạt động" icon={CheckCircle2}>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={gpuData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={TICK_STYLE} />
+                <YAxis tick={TICK_STYLE} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" name="Jobs hoàn thành" fill="#22c55e" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
