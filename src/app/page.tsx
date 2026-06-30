@@ -76,10 +76,10 @@ function GpuStatusPanel() {
   const inProgressCount = (["RUNNING", "DISPATCHED", "SCENES_READY", "AWAITING_EMBEDDING"] as const)
     .reduce((sum, k) => sum + (allTime[k] ?? 0), 0);
   const statusItems = [
-    { label: "Hoàn thành", value: today["COMPLETED"] ?? 0, icon: CheckCircle2, color: "text-green-500" },
+    { label: "Hoàn thành", value: allTime["COMPLETED"] ?? 0, icon: CheckCircle2, color: "text-green-500" },
     { label: "Chờ xử lý", value: allTime["QUEUED_FOR_GPU"] ?? 0, icon: Clock, color: "text-yellow-500" },
     { label: "Đang xử lý", value: inProgressCount, icon: Activity, color: "text-blue-500" },
-    { label: "Thất bại", value: today["FAILED"] ?? 0, icon: XCircle, color: "text-red-500" },
+    { label: "Thất bại", value: allTime["FAILED"] ?? 0, icon: XCircle, color: "text-red-500" },
   ];
 
   const onlineSessions = sessions.filter((s) => s.is_online);

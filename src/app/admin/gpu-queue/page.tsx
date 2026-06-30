@@ -109,22 +109,39 @@ export default function GpuQueuePage() {
         <KaggleGuide />
       </div>
 
-      {/* Stats — all time */}
-      {stats && (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {Object.entries(stats.all_time).map(([status, count]) => (
-            <div
-              key={status}
-              className={`rounded-lg border px-3 py-2 text-center cursor-pointer hover:bg-muted/50 transition-colors ${statusFilter === status ? "border-primary bg-primary/5" : ""}`}
-              onClick={() => handleFilterChange(status === statusFilter ? "" : status)}
-              title={status}
-            >
-              <p className="text-lg font-bold">{count}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{status.replace(/_/g, " ")}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Stats — all time, theo thứ tự pipeline */}
+      {stats && (() => {
+        const PIPELINE_ORDER = [
+          "QUEUED_FOR_GPU",
+          "DISPATCHED",
+          "RUNNING",
+          "SCENES_READY",
+          "AWAITING_EMBEDDING",
+          "COMPLETED",
+          "FAILED",
+          "PENDING",
+        ];
+        const allEntries = Object.entries(stats.all_time);
+        const sorted = [
+          ...PIPELINE_ORDER.filter(s => s in stats.all_time).map(s => [s, stats.all_time[s]] as [string, number]),
+          ...allEntries.filter(([s]) => !PIPELINE_ORDER.includes(s)),
+        ];
+        return (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            {sorted.map(([status, count]) => (
+              <div
+                key={status}
+                className={`rounded-lg border px-3 py-2 text-center cursor-pointer hover:bg-muted/50 transition-colors ${statusFilter === status ? "border-primary bg-primary/5" : ""}`}
+                onClick={() => handleFilterChange(status === statusFilter ? "" : status)}
+                title={status}
+              >
+                <p className="text-lg font-bold">{count}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{status.replace(/_/g, " ")}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Filter tabs with counts */}
       <div className="flex gap-2 flex-wrap">
